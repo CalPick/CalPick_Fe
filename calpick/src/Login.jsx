@@ -22,7 +22,7 @@ function Login() {
       if (response.ok) {
         localStorage.setItem("token", data.accessToken);
         localStorage.setItem("nickname", data.nickname);
-        navigate("/success");
+        navigate("/");//메인화면으로 이동
       } else {
         alert(data.error || "로그인 실패");
       }

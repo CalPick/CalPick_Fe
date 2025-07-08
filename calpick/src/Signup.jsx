@@ -55,7 +55,7 @@ userId.length > 0 &&
       const data = await response.json();
 
       if (response.ok) {
-        navigate("/success");
+        navigate("/success", { state: { userId, password }});
       } else {
         alert(data.error || "회원가입 실패");
       }
