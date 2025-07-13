@@ -64,7 +64,7 @@ export default function CalendarWrapper({ userId }) {
   return (
     <>
       <div className="w-full h-full flex flex-col">
-        <div className="px-0 pt-8 pb-2">
+        <div className="px-0">
           <CalendarHeader
             year={year}
             month={month}
@@ -72,7 +72,7 @@ export default function CalendarWrapper({ userId }) {
             onNext={() => setMonth(m => m === 11 ? 0 : m + 1)}
           />
         </div>
-        <div className="grid grid-cols-7 text-center text-[16px] font-medium text-gray-700 mb-2">
+        <div className="grid grid-cols-7 text-center text-[16px]  font-semibold text-gray-700 mb-2">
           {["일", "월", "화", "수", "목", "금", "토"].map((d) => (
             <div key={d}>{d}</div>
           ))}

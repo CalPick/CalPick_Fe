@@ -1,41 +1,41 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 export default function CalendarDrawer({ date, schedules, onClose, onAddSchedule }) {
   // Drawer 애니메이션 상태
   const [show, setShow] = useState(false);
   const drawerRef = useRef();
 
   useEffect(() => {
-    // 마운트 후 애니메이션 트리거 (조금 뒤 true로)
     setTimeout(() => setShow(true), 10);
   }, []);
 
-  // 닫기 애니메이션
   const handleClose = () => {
     setShow(false);
-    setTimeout(onClose, 400); // 애니메이션 duration과 맞춤
+    setTimeout(onClose, 400);
   };
 
-  // 오늘 일정만 필터
   const pad = n => n.toString().padStart(2, "0");
-    const dateStr =
-  `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  const dateStr = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 
   const todaySchedules = (Array.isArray(schedules) ? schedules : []).filter(
-  sch => sch.startTime && sch.startTime.slice(0, 10) === dateStr);
+    sch => sch.startTime && sch.startTime.slice(0, 10) === dateStr
+  );
 
   // 폼 입력 상태
   const [title, setTitle] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
 
+  // 일정 추가 (API 명세와 동일)
   const handleAdd = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem("token");
     try {
       await axios.post(
-        "/api/schedules",
+        `${API_URL}/api/schedules`,
         {
           title,
           startTime: `${dateStr}T${startTime}`,
@@ -44,7 +44,7 @@ export default function CalendarDrawer({ date, schedules, onClose, onAddSchedule
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setTitle(""); setStartTime(""); setEndTime("");
-      if (onAddSchedule) onAddSchedule(); // 등록 후 달력 새로고침
+      if (onAddSchedule) onAddSchedule();
     } catch {
       alert("일정 추가 실패!");
     }
@@ -52,7 +52,7 @@ export default function CalendarDrawer({ date, schedules, onClose, onAddSchedule
 
   return (
     <div className="fixed inset-0 z-50" aria-modal="true" role="dialog">
-      {/* 어두운 배경 (fade-in/out) */}
+      {/* 어두운 배경 */}
       <div
         className={`
           fixed inset-0 bg-gray-500/75 transition-opacity duration-400

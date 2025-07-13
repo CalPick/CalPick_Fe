@@ -1,11 +1,12 @@
 import React from "react";
-import CalendarPage from './components/calendar/CalendarPage';  // CalendarPage 임포트
+import { BrowserRouter } from "react-router-dom";
+import CalendarPage from './components/calendar/CalendarPage';
 
 function App() {
   return (
-    <div className="w-full h-screen bg-white">
+    <BrowserRouter>
       <CalendarPage userId={"yourUserId"} />
-    </div>
+    </BrowserRouter>
   );
 }
 
