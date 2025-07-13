@@ -12,7 +12,7 @@ export default function CalendarPage({ userId, nickname, onLogout }) {
 
         {/* 닉네임 + 로그아웃 버튼 영역 */}
         <div className="ml-216 flex items-center space-x-4">
-          <span className="font-semibold text-black whitespace-nowrap">{nickname}김건우 님</span>
+          <span className="font-semibold text-black whitespace-nowrap">{nickname} 님</span>
           <button
             onClick={onLogout}
             className="w-[116px] h-[36px] bg-[#D0D0D0] text-black rounded-lg px-5 py-1 hover:bg-red-700 transition font-semibold"
