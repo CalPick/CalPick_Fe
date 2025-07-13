@@ -1,9 +1,13 @@
+import React from "react";
+import { BrowserRouter } from "react-router-dom";
+import CalendarPage from './components/calendar/CalendarPage';
+
 function App() {
   return (
-    <div className="text-3xl font-bold underline text-red-600">
-      Hello Tailwind + Vite + React!
-    </div>
-  )
+    <BrowserRouter>
+      <CalendarPage userId={"yourUserId"} />
+    </BrowserRouter>
+  );
 }
 
 export default App;
