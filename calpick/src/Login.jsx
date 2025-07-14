@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 function Login() {
   const [userId, setUserId] = useState("");
@@ -10,11 +9,15 @@ function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    const baseUrl = import.meta.env.VITE_API_URL || "";
+    const url = `${baseUrl}/api/auth/login`;
+    const payload = { userId, password };
+
     try {
-      const response = await fetch("/api/auth/login", {
+      const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, password }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -22,11 +25,12 @@ function Login() {
       if (response.ok) {
         localStorage.setItem("token", data.accessToken);
         localStorage.setItem("nickname", data.nickname);
-        navigate("/");//메인화면으로 이동
+        navigate("/"); // 메인화면으로 이동
       } else {
         alert(data.error || "로그인 실패");
       }
     } catch (error) {
+      console.error("🚨 Fetch error:", error);
       alert("서버 오류");
     }
   };
@@ -56,9 +60,9 @@ function Login() {
 
         <button
           type="submit"
-          className="w-full bg-black text-white py-2.5 mt-30 rounded-xl "
+          className="w-full bg-black text-white py-2.5 mt-8 rounded-xl"
         >
-          가입하기
+          로그인
         </button>
       </form>
 

@@ -10,8 +10,8 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<CalendarPage userId={"yourUserId"} />} />
         <Route path="/landing" element={<Landing />} />
+        <Route path="/" element={<CalendarPage userId={"yourUserId"} />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/success" element={<LoginSuccess />} />

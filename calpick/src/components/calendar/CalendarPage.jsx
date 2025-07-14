@@ -1,8 +1,19 @@
 import React from "react";
 import CalendarWrapper from "./CalendarWrapper";
 import Logo from "./Logo";  // Logo 컴포넌트 import
+import { useNavigate } from "react-router";
 
-export default function CalendarPage({ userId, nickname, onLogout }) {
+export default function CalendarPage({ userId }) {
+  const navigate = useNavigate();
+  const nickname = localStorage.getItem("nickname")
+  if(!localStorage.getItem("token")){
+    navigate("landing");
+  }
+  function onLogout(){
+    localStorage.removeItem("token");
+    localStorage.removeItem("nickname");
+    navigate("landing")
+  }
   return (
     <div className="relative w-full max-w-[1440px] h-[900x] mx-auto bg-transparent">
       {/* 상단 헤더 */}
