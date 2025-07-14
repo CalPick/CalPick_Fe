@@ -1,6 +1,6 @@
 import React from 'react';
-import LeftArrowIcon from '../../assets/Property 1=Default-1.svg';   // 왼쪽 화살표
-import RightArrowIcon from '../../assets/Property 1=Default.svg';   // 오른쪽 화살표
+import LeftArrowIcon from '../../assets/left-arrow.svg';   // 왼쪽 화살표
+import RightArrowIcon from '../../assets/right-arrow.svg';   // 오른쪽 화살표
 
 export default function CalendarHeader({ year, month, onPrev, onNext }) {
   return (

@@ -20,7 +20,7 @@ function LoginSuccess() {
       if (response.ok) {
         localStorage.setItem("token", data.accessToken);
         localStorage.setItem("nickname", data.nickname);
-        navigate("/"); //메인화면 주소
+        navigate("/calendar"); //메인화면 주소
       } else {
         alert(data.error || "자동 로그인 실패");
       }

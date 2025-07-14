@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import CalendarHeader from "./CalendarHeader";
 import CalendarGrid from "./CalendarGrid";
-import CalendarDrawer from "./CalendarDrawer"; // 오른쪽 슬라이드 오버 패널
+import ScheduleFormPanel from "../common/ScheduleFormPanel";
 import axios from "axios";
 
 export default function CalendarWrapper({ userId }) {
@@ -9,10 +9,10 @@ export default function CalendarWrapper({ userId }) {
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [schedules, setSchedules] = useState([]);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerDate, setDrawerDate] = useState(null);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [anchorRef, setAnchorRef] = useState(null);
 
-  // 날짜 배열 구하는 함수
   function getDates(year, month) {
     const firstDate = new Date(year, month, 1);
     const lastDate = new Date(year, month + 1, 0);
@@ -23,24 +23,18 @@ export default function CalendarWrapper({ userId }) {
     return dates;
   }
 
-  // API 호출
-  useEffect(() => {
+  React.useEffect(() => {
     const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
     const endDate = `${year}-${String(month + 1).padStart(2, '0')}-31`;
     const token = localStorage.getItem('token');
-
     axios.get(
       `/api/schedules?userId=${userId}&startDate=${startDate}&endDate=${endDate}`,
       { headers: { Authorization: `Bearer ${token}` } }
     )
     .then(res => setSchedules(Array.isArray(res.data) ? res.data : []))
-    .catch(err => {
-      alert(err.response?.data?.error || "일정 불러오기 실패");
-      setSchedules([]);
-    });
+    .catch(() => setSchedules([]));
   }, [userId, year, month]);
 
-  // 일정 추가 후 달력 새로고침
   const refreshSchedules = () => {
     const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
     const endDate = `${year}-${String(month + 1).padStart(2, '0')}-31`;
@@ -53,10 +47,17 @@ export default function CalendarWrapper({ userId }) {
     .catch(() => setSchedules([]));
   };
 
-  // 날짜 클릭시 drawer 오픈
-  const onDateClick = (date) => {
-    setDrawerDate(date);
-    setDrawerOpen(true);
+  // 셀 클릭 시 패널 오픈, ref 연결
+  const handleCellClick = (date, cellRef) => {
+    setSelectedDate(date);
+    setAnchorRef(cellRef);
+    setPanelOpen(true);
+  };
+
+  const handlePanelClose = () => {
+    setPanelOpen(false);
+    setSelectedDate(null);
+    setAnchorRef(null);
   };
 
   const dates = getDates(year, month);
@@ -72,7 +73,7 @@ export default function CalendarWrapper({ userId }) {
             onNext={() => setMonth(m => m === 11 ? 0 : m + 1)}
           />
         </div>
-        <div className="grid grid-cols-7 text-center text-[16px]  font-semibold text-gray-700 mb-2">
+        <div className="grid grid-cols-7 text-center text-[16px] font-semibold text-gray-700 mb-2">
           {["일", "월", "화", "수", "목", "금", "토"].map((d) => (
             <div key={d}>{d}</div>
           ))}
@@ -81,17 +82,22 @@ export default function CalendarWrapper({ userId }) {
           <CalendarGrid
             dates={dates}
             currentMonth={month}
-            onDateClick={onDateClick}
+            onDateClick={handleCellClick}
             schedules={schedules}
+            selectedDate={selectedDate}
+            setCellRef={handleCellClick}
           />
         </div>
       </div>
-      {/* 오른쪽 드로어 */}
-      {drawerOpen && drawerDate && (
-        <CalendarDrawer
-          date={drawerDate}
-          schedules={schedules}
-          onClose={() => setDrawerOpen(false)}
+
+      {/* 일정 등록 패널 */}
+      {panelOpen && selectedDate && anchorRef && (
+        <ScheduleFormPanel
+          open={panelOpen}
+          anchorRef={anchorRef}
+          date={selectedDate}
+          setDate={setSelectedDate}
+          onClose={handlePanelClose}
           onAddSchedule={refreshSchedules}
         />
       )}
