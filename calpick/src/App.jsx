@@ -4,12 +4,14 @@ import CalendarPage from './components/calendar/CalendarPage';
 import Login from './Login';
 import Signup from './Signup';
 import LoginSuccess from './LoginSuccess';
+import Landing from "./Landing";
 
 function App() {
   return (
     <Router>
       <Routes>
         <Route path="/" element={<CalendarPage userId={"yourUserId"} />} />
+        <Route path="/landing" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/success" element={<LoginSuccess />} />
