@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from "react";
 import calendaricon from '../../assets/calendaricon.svg';
-import clockicon from '../../assets/timeicon.svg';   // 시계 아이콘 추가
+import clockicon from '../../assets/timeicon.svg';
 
 const COLORS = [
   { name: "red", bg: "bg-red-300", value: "#f87171" },
@@ -131,10 +131,57 @@ export default function ScheduleFormPanel({
     }
   }, [startTime, endTime]);
 
+  // -------------------------------
+  // 🔥 핵심: 일정 등록 API 호출
+  // -------------------------------
   const handleSubmit = async (e) => {
     e.preventDefault();
-    onAddSchedule?.();
-    onClose();
+    // 시작/종료 시간 포맷 생성
+    const dateISO = dateStr; // yyyy-mm-dd
+    // 종일이면 06:00~24:00, 아니면 입력값
+    const start = allDay ? "06:00" : startTime;
+    const end = allDay ? "24:00" : endTime;
+
+    // yyyy-mm-ddTHH:MM:SS 형식
+    function toISO(dateStr, timeStr) {
+      return `${dateStr}T${timeStr.length === 5 ? timeStr : "00:00"}:00`;
+    }
+    const newSchedule = {
+      title,
+      startTime: toISO(dateISO, start),
+      endTime: toISO(dateISO, end),
+      isRepeating: repeat,
+    };
+
+    try {
+      const baseUrl = import.meta.env.VITE_API_URL || "";
+      const token = localStorage.getItem("token"); // 토큰 저장 위치에 맞게 수정
+      const res = await fetch(`${baseUrl}/api/schedules`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify([newSchedule]),
+      });
+      if (!res.ok) {
+        // 응답이 없거나, json이 아닌 경우
+         let errMsg = "일정 등록 실패";
+          try {
+             const err = await res.json();
+             errMsg = err.message || errMsg;
+            } catch {}
+            alert(errMsg);
+        return;
+      }
+      const data = await res.json();
+      console.log("일정 등록 성공:", data);
+      onAddSchedule?.(data); // 필요 시 등록된 데이터 부모로 전달
+      onClose();
+    } catch (error) {
+      alert("네트워크 오류로 일정 등록에 실패했습니다.");
+      console.error(error);
+    }
   };
 
   const canSubmit =
@@ -312,7 +359,6 @@ export default function ScheduleFormPanel({
 
           {/* 시간/종일 한 줄 통합 */}
           <div className="flex items-center gap-3 mt-2">
-            {/* 여기 시계 아이콘 이미지로 교체 */}
             <img src={clockicon} alt="시계" className="w-6 h-6 mr-2" draggable={false} />
             {allDay ? (
               <div className="flex items-center px-6 py-2 rounded-[9px] border border-gray-200 text-black text-[17px]  select-none" style={{ width: "160px", height: "38px" }}>

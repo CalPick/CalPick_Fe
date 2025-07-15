@@ -8,7 +8,7 @@ export default function Logo() {
 
   const handleClick = () => {
     if (isLoggedIn) {
-      navigate('/calendar');
+      navigate('/');
     } else { 
       navigate('/login');
     }

@@ -16,9 +16,8 @@ export default function CalendarHeader({ year, month, onPrev, onNext }) {
           className="w-10 h-10 hover:filter hover:brightness-75"
         />
       </button>
-
       <h2 className="text-2xl font-bold font-sans">
-        {month + 1}월
+        {year}년 {month + 1}월
       </h2>
 
       <button

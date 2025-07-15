@@ -2,13 +2,16 @@ import React from "react";
 import CalendarWrapper from "./CalendarWrapper";
 import Logo from "./Logo";  // Logo 컴포넌트 import
 import { useNavigate } from "react-router";
+import { useEffect } from "react";
 
 export default function CalendarPage({ userId }) {
   const navigate = useNavigate();
   const nickname = localStorage.getItem("nickname")
-  if(!localStorage.getItem("token")){
-    navigate("landing");
+  useEffect(() => {
+  if (!localStorage.getItem("token")) {
+    navigate("/landing", { replace: true });
   }
+  }, [navigate]);
   function onLogout(){
     localStorage.removeItem("token");
     localStorage.removeItem("nickname");
