@@ -5,6 +5,7 @@ import Login from './Login';
 import Signup from './Signup';
 import LoginSuccess from './LoginSuccess';
 import Landing from "./Landing";
+import NotFoundPage from "./pages/NotFoundPage";
 
 function App() {
   return (
@@ -15,6 +16,8 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/success" element={<LoginSuccess />} />
+
+        <Route path="*" element={<NotFoundPage/>} />
       </Routes>
     </Router>
   );
