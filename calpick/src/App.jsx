@@ -4,8 +4,10 @@ import CalendarPage from './components/calendar/CalendarPage';
 import Login from './Login';
 import Signup from './Signup';
 import LoginSuccess from './LoginSuccess';
-import Landing from "./Landing";
+import Landing from "./pages/Landing";
 import NotFoundPage from "./pages/NotFoundPage";
+import LoadingPage from "./pages/LoadingPage";
+
 
 function App() {
   return (
@@ -16,7 +18,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/success" element={<LoginSuccess />} />
-
+        <Route path="/loading" element={<LoadingPage />} />
         <Route path="*" element={<NotFoundPage/>} />
       </Routes>
     </Router>
