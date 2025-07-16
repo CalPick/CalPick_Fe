@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import calendaricon from '../../assets/calendaricon.svg';
 import clockicon from '../../assets/timeicon.svg';
+import recycle from '../../assets/recycle.svg';
 
 const COLORS = [
   { name: "red", bg: "bg-red-300", value: "#f87171" },
@@ -9,6 +10,9 @@ const COLORS = [
   { name: "blue", bg: "bg-sky-200", value: "#bae6fd" },
 ];
 const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
+
+const pad = n => n.toString().padStart(2, "0");
+const pad2 = n => n.toString().padStart(2, "0");
 
 function clampStartTime(val) {
   if (!/^\d{2}:\d{2}$/.test(val)) return "";
@@ -43,20 +47,26 @@ export default function ScheduleFormPanel({
 }) {
   const panelRef = useRef(null);
 
-  const pad = n => n.toString().padStart(2, "0");
+  const getShortDateStr = (d) =>
+    `${pad2(d.getFullYear() % 100)}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   const dateStr = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  const shortDateStr = getShortDateStr(date);
 
   const [title, setTitle] = useState("");
   const [color, setColor] = useState(COLORS[0].value);
   const [repeat, setRepeat] = useState(false);
   const [repeatType, setRepeatType] = useState("weekly");
-  const [repeatEnd, setRepeatEnd] = useState("");
-  const [repeatMonths, setRepeatMonths] = useState("");
+  const [repeatMonths, setRepeatMonths] = useState("1");
   const [repeatDays, setRepeatDays] = useState([date.getDay()]);
   const [allDay, setAllDay] = useState(false);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [show, setShow] = useState(false);
+  const [showMonthInput, setShowMonthInput] = useState(true);
+  const [calcEndDate, setCalcEndDate] = useState("");
+
+  const getCalcEndDateStr = (d) =>
+    `${pad2(d.getFullYear() % 100)}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
   useEffect(() => {
     if (open && anchorRef?.current && panelRef.current) {
@@ -102,12 +112,47 @@ export default function ScheduleFormPanel({
   };
 
   useEffect(() => {
+    if (repeat) {
+      setRepeatMonths((v) => v || "1");
+      setShowMonthInput(false);
+    } else {
+      setRepeatMonths("");
+      setCalcEndDate("");
+      setShowMonthInput(true);
+    }
+  }, [repeat]);
+
+  useEffect(() => {
     if (repeat && repeatMonths && Number(repeatMonths) > 0) {
       const d = new Date(dateStr);
-      d.setMonth(d.getMonth() + Number(repeatMonths) + 1, 0);
-      setRepeatEnd(d.toISOString().slice(0, 10));
+      d.setMonth(d.getMonth() + Number(repeatMonths));
+      setCalcEndDate(getCalcEndDateStr(d));
+    } else {
+      setCalcEndDate("");
     }
   }, [repeat, repeatMonths, dateStr]);
+
+ const handleMonthInput = (e) => {
+  let val = e.target.value.replace(/[^0-9]/g, "");
+  if (val) {
+    let num = Number(val);
+    if (num > 24) num = 24;
+    val = num.toString();
+  }
+  setRepeatMonths(val);
+};
+
+  const handleMonthInputBlur = () => {
+    if (repeatMonths && Number(repeatMonths) > 0) setShowMonthInput(false);
+  };
+
+  const handleShowMonthInput = () => {
+    setShowMonthInput(true);
+    setTimeout(() => {
+      const input = document.getElementById("monthInputBox");
+      if (input) input.focus();
+    }, 50);
+  };
 
   useEffect(() => {
     if (
@@ -131,18 +176,11 @@ export default function ScheduleFormPanel({
     }
   }, [startTime, endTime]);
 
-  // -------------------------------
-  // 🔥 핵심: 일정 등록 API 호출
-  // -------------------------------
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // 시작/종료 시간 포맷 생성
-    const dateISO = dateStr; // yyyy-mm-dd
-    // 종일이면 06:00~24:00, 아니면 입력값
+    const dateISO = dateStr;
     const start = allDay ? "06:00" : startTime;
     const end = allDay ? "24:00" : endTime;
-
-    // yyyy-mm-ddTHH:MM:SS 형식
     function toISO(dateStr, timeStr) {
       return `${dateStr}T${timeStr.length === 5 ? timeStr : "00:00"}:00`;
     }
@@ -155,28 +193,26 @@ export default function ScheduleFormPanel({
 
     try {
       const baseUrl = import.meta.env.VITE_API_URL || "";
-      const token = localStorage.getItem("token"); // 토큰 저장 위치에 맞게 수정
+      const token = localStorage.getItem("token");
       const res = await fetch(`${baseUrl}/api/schedules`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify([newSchedule]),
+        body: JSON.stringify(newSchedule),
       });
       if (!res.ok) {
-        // 응답이 없거나, json이 아닌 경우
-         let errMsg = "일정 등록 실패";
-          try {
-             const err = await res.json();
-             errMsg = err.message || errMsg;
-            } catch {}
-            alert(errMsg);
+        let errMsg = "일정 등록 실패";
+        try {
+          const err = await res.json();
+          errMsg = err.message || errMsg;
+        } catch {}
+        alert(errMsg);
         return;
       }
       const data = await res.json();
-      console.log("일정 등록 성공:", data);
-      onAddSchedule?.(data); // 필요 시 등록된 데이터 부모로 전달
+      onAddSchedule?.(data);
       onClose();
     } catch (error) {
       alert("네트워크 오류로 일정 등록에 실패했습니다.");
@@ -195,7 +231,6 @@ export default function ScheduleFormPanel({
 
   if (!open || !anchorRef?.current) return null;
 
-  // 체크 SVG
   function CheckSvg() {
     return (
       <svg
@@ -281,87 +316,54 @@ export default function ScheduleFormPanel({
               </button>
             ))}
           </div>
-          {/* 날짜 항상 노출, 반복이든 아니든 */}
-          <div className="flex items-center mb-1 mt-1">
-            <img src={calendaricon} alt="달력" className= "w-6 h-6 mr-[19px]" draggable={false} />
-            <input
-              type="date"
-              className="text-[#AEAEB2] text-[16px] border border-[#E8E8E8] rounded-[9px] px-2 py-[6px]  focus:outline-none bg-transparent cursor-pointer"
-              style={{ width: "140px" }}
-              value={dateStr}
-              onChange={e => setDate?.(new Date(e.target.value))}
-            />
-          </div>
-          {/* 반복 옵션 */}
-          {repeat && (
-            <>
-              <div className="flex gap-2 items-center">
-                <div className="flex-1 flex items-center border rounded-md px-2 py-2">
-                  <img src={calendaricon} alt="달력" className="w-6 h-6 mr-2" draggable={false} />
+          {/* 날짜 + 개월 반복 한 줄 */}
+          <div className="flex items-center gap-2 mb-1 mt-1">
+            <img src={calendaricon} alt="달력" className="w-6 h-6 mr-2" draggable={false} />
+            {/* 읽기 전용으로 yy-mm-dd */}
+            <div
+              className="text-black text-[16px] border border-[#E8E8E8] rounded-[9px] px-[26px] py-[6px] select-none"
+              style={{ width: "128px" }}
+            >
+              {shortDateStr}
+            </div>
+            {repeat && (
+              <>
+                <span className="font-semibold">~</span>
+                {showMonthInput ? (
                   <input
-                    type="date"
-                    className="flex-1 bg-transparent focus:outline-none"
-                    value={dateStr}
-                    onChange={e => setDate?.(new Date(e.target.value))}
-                  />
-                </div>
-                <span className="mx-2 text-gray-400">~</span>
-                <div className="flex-1 flex items-center gap-1">
-                  <input
-                    type="date"
-                    className="flex-1 border rounded-md px-2 py-2 bg-transparent focus:outline-none"
-                    value={repeatEnd}
-                    min={dateStr}
-                    onChange={e => setRepeatEnd(e.target.value)}
-                    placeholder="종료일"
-                  />
-                  <span className="text-xs text-gray-400">또는</span>
-                  <input
+                    id="monthInputBox"
                     type="number"
                     min="1"
                     max="24"
-                    className="w-12 border rounded px-1 py-1 text-right focus:outline-none"
-                    placeholder="개월"
+                    className="w-32 h-[38px] placeholder-[#AEAEB2] border pr-3 border-[#E8E8E8] rounded-[9px] px-1 py-1 text-right focus:outline-none"
+                    placeholder="+1달(기본값)"
                     value={repeatMonths}
-                    onChange={e => setRepeatMonths(e.target.value)}
+                    onChange={handleMonthInput}
+                    onBlur={handleMonthInputBlur}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") handleMonthInputBlur();
+                    }}
                   />
-                  <span className="text-xs text-gray-400">개월</span>
-                </div>
-              </div>
-              {/* 반복 타입 */}
-              <div className="flex gap-2">
-                <select
-                  className="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                  value={repeatType}
-                  onChange={e => setRepeatType(e.target.value)}
-                >
-                  <option value="weekly">매주</option>
-                  <option value="biweekly">격주</option>
-                  <option value="monthly">매월</option>
-                </select>
-              </div>
-              {/* 반복 요일 선택 */}
-              <div className="flex justify-between">
-                {DAYS.map((d, idx) => (
-                  <button
-                    type="button"
-                    key={d}
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold
-                      ${repeatDays.includes(idx) ? 'bg-black text-white' : 'bg-white text-black border border-gray-200'}`}
-                    onClick={() => toggleDay(idx)}
+                ) : (
+                  <span
+                    className="w-32 h-[38px] border border-[#E8E8E8] rounded-[9px] px-[26px] py-1.5 text-black bg-white cursor-pointer select-none"
+                    onClick={handleShowMonthInput}
+                    title="클릭해서 개월 수정"
                   >
-                    {d}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
+                    {repeatMonths && Number(repeatMonths) > 0 && calcEndDate
+                      ? ` ${calcEndDate}`
+                      : ""}
+                  </span>
+                )}
+              </>
+            )}
+          </div>
 
           {/* 시간/종일 한 줄 통합 */}
           <div className="flex items-center gap-3 mt-2">
-            <img src={clockicon} alt="시계" className="w-6 h-6 mr-2" draggable={false} />
+            <img src={clockicon} alt="시계" className="w-6 h-6 mr-1" draggable={false} />
             {allDay ? (
-              <div className="flex items-center px-6 py-2 rounded-[9px] border border-gray-200 text-black text-[17px]  select-none" style={{ width: "160px", height: "38px" }}>
+              <div className="flex items-center px-6 py-2 rounded-[9px] border border-gray-200 text-black text-[17px] select-none" style={{ width: "160px", height: "38px" }}>
                 06:00 ~ 24:00
               </div>
             ) : (
@@ -370,18 +372,18 @@ export default function ScheduleFormPanel({
                   type="text"
                   inputMode="numeric"
                   maxLength={5}
-                  className="w-[66px] pl-[8px] pr-[0px] py-0  focus:outline-none text-gray-700 placeholder-[#AEAEB2] text-[17px]"
+                  className="w-[66px] pl-[8px] pr-[0px] py-0 focus:outline-none text-black placeholder-[#AEAEB2] text-[17px]"
                   value={startTime}
                   onChange={handleTimeInput(setStartTime, clampStartTime)}
                   placeholder="06:00"
                   autoComplete="off"
                 />
-                <span className="-ml-2 -mr-1 text-gray-400 h-[25px]">~</span>
+                <span className="-ml-[8.5px] -mr-1 text-[17px] text-black h-[28px]">~</span>
                 <input
                   type="text"
                   inputMode="numeric"
                   maxLength={5}
-                  className="pl-2 pr-0 py-0 w-[62px] bg-transparent focus:outline-none  text-gray-700 placeholder-[#AEAEB2] text-[17px]"
+                  className="pl-2 pr-0 py-0 w-[62px] bg-transparent focus:outline-none text-black placeholder-[#AEAEB2] text-[17px]"
                   value={endTime}
                   onChange={handleTimeInput(setEndTime, clampEndTime)}
                   placeholder="24:00"
@@ -392,9 +394,42 @@ export default function ScheduleFormPanel({
             {/* 종일 */}
             <label className="flex items-center gap-1.5 ml-2 text-lg font-medium cursor-pointer">
               <Checkbox checked={allDay} onChange={e => setAllDay(e.target.checked)} />
-              <span className="text-black  text-lg font-normal">종일</span>
+              <span className="text-black text-lg font-normal">종일</span>
             </label>
           </div>
+
+          {/* 반복 옵션 (시간 설정 아래로 이동!) */}
+          {repeat && (
+            <>
+              <div className="flex gap-2 mt-2">
+                <img src={recycle} alt="반복" className="w-6 h-6 mr-2 mt-2 -ml-[1px]" draggable={false} />
+                <select
+                  className="appearance-none w-30 h-[38px] border border-[#E8E8E8] rounded-[9px] px-4 py-1 focus:outline-none focus:boarder-1 focus:border-black"
+                  value={repeatType}
+                  onChange={e => setRepeatType(e.target.value)}
+                >
+                  <option value="weekly">매주</option>
+                  <option value="biweekly">격주</option>
+                  <option value="monthly">매월</option>
+                </select>
+              </div>
+              {/* 반복 요일 선택 */}
+              <div className="flex justify-between mt-1">
+                {DAYS.map((d, idx) => (
+                  <button
+                    type="button"
+                    key={d}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center text-[16px]
+                      ${repeatDays.includes(idx) ? 'bg-black text-white' : 'bg-white text-black'}`}
+                    onClick={() => toggleDay(idx)}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
           {/* 등록 */}
           <button
             type="submit"
