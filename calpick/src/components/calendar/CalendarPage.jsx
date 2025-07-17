@@ -3,15 +3,17 @@ import CalendarWrapper from "./CalendarWrapper";
 import Logo from "./Logo";  // Logo 컴포넌트 import
 import { useNavigate } from "react-router";
 import { useEffect } from "react";
+import Sidebar from "../sidebar/Sidebar";
+
 
 export default function CalendarPage({ userId }) {
   const navigate = useNavigate();
   const nickname = localStorage.getItem("nickname")
-  useEffect(() => {
-  if (!localStorage.getItem("token")) {
-    navigate("/landing", { replace: true });
-  }
-  }, [navigate]);
+  // useEffect(() => {
+  // if (!localStorage.getItem("token")) {
+  //   navigate("/landing", { replace: true });
+  // }
+  // }, [navigate]);
   function onLogout(){
     localStorage.removeItem("token");
     localStorage.removeItem("nickname");
@@ -37,14 +39,8 @@ export default function CalendarPage({ userId }) {
       </header>
 
       {/* 그룹 패널 */}
-      <aside
-        className="
-          absolute left-[130px] top-[186px] w-[254px] h-[715px]
-          bg-[#D9D9D9] rounded-[11px] flex flex-col items-center justify-center
-          font-bold text-gray-700
-        "
-      >
-        그룹
+      <aside>
+          <Sidebar />
       </aside>
 
       {/* 캘린더 패널 */}
