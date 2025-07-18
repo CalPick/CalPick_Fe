@@ -9,7 +9,7 @@ export default function CalendarPage({ userId }) {
   const nickname = localStorage.getItem("nickname")
   useEffect(() => {
   if (!localStorage.getItem("token")) {
-    navigate("/landing", { replace: true });
+    navigate("landing", { replace: true });
   }
   }, [navigate]);
   function onLogout(){

@@ -3,6 +3,9 @@ import LeftArrowIcon from '../../assets/Property 1=Default-1.svg';   // 왼쪽 �
 import RightArrowIcon from '../../assets/Property 1=Default.svg';   // 오른쪽 화살표
 
 export default function CalendarHeader({ year, month, onPrev, onNext }) {
+  const thisYear = new Date().getFullYear();
+  const isCurrentYear = year === thisYear;
+
   return (
     <div className="flex justify-between items-center font-sans">
       <button
@@ -17,9 +20,11 @@ export default function CalendarHeader({ year, month, onPrev, onNext }) {
         />
       </button>
       <h2 className="text-2xl font-bold font-sans">
-        {year}년 {month + 1}월
+        {isCurrentYear
+          ? `${month + 1}월`
+          : `${year}년 ${month + 1}월`
+        }
       </h2>
-
       <button
         onClick={onNext}
         className="p-2 rounded hover:bg-gray-100 hover:rounded-full transition-all duration-200"

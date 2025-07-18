@@ -1,10 +1,34 @@
 import React, { forwardRef } from 'react';
+import ScheduleTag from "../common/ScheduleTag";
+
+const pad = n => n.toString().padStart(2, "0");
+function getDateStr(date) {
+  return date
+    ? `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+    : "";
+}
 
 const CalendarCell = forwardRef(function CalendarCell(
-  { date, isCurrentMonth, onClick, isSelected, children, noBorderRight, noBorderBottom },
+  {
+    date,
+    isCurrentMonth,
+    onClick,
+    isSelected,
+    children,
+    noBorderRight,
+    noBorderBottom,
+    schedules = [],
+  },
   ref
 ) {
   const isToday = date && new Date().toDateString() === date?.toDateString();
+  const dateStr = getDateStr(date);
+  const todaySchedules = date
+    ? schedules.filter(sch => sch.startTime.startsWith(dateStr))
+    : [];
+  const shown = todaySchedules.slice(0, 3);
+  const hiddenCount = todaySchedules.length > 3 ? todaySchedules.length - 3 : 0;
+
   return (
     <div
       ref={ref}
@@ -34,10 +58,17 @@ const CalendarCell = forwardRef(function CalendarCell(
         }
       </div>
       <div className="relative z-10 w-full mt-2">
+        {shown.map(sch => (
+          <ScheduleTag key={sch.id} title={sch.title} color={sch.color} />
+        ))}
+        {hiddenCount > 0 && (
+          <div className="text-xs mt-1 ml-1 text-gray-500 font-bold">
+            +{hiddenCount}
+          </div>
+        )}
         {children}
       </div>
     </div>
   );
 });
-
 export default CalendarCell;

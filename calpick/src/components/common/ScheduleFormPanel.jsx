@@ -1,16 +1,15 @@
 import React, { useRef, useEffect, useState } from "react";
 import calendaricon from '../../assets/calendaricon.svg';
 import clockicon from '../../assets/timeicon.svg';
-import recycle from '../../assets/recycle.svg';
+import { getRepeatingDates } from "../common/repeatDateUtil";
 
 const COLORS = [
-  { name: "red", bg: "bg-red-300", value: "#f87171" },
-  { name: "yellow", bg: "bg-yellow-200", value: "#fde68a" },
-  { name: "green", bg: "bg-green-200", value: "#bbf7d0" },
-  { name: "blue", bg: "bg-sky-200", value: "#bae6fd" },
+  { name: "red", value: "#FF767680" },
+  { name: "yellow", value: "#FCCB0580" },
+  { name: "green", value: "#5FC59D80" },
+  { name: "blue", value: "#4BB5DD80" },
 ];
 const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
-
 const pad = n => n.toString().padStart(2, "0");
 const pad2 = n => n.toString().padStart(2, "0");
 
@@ -64,9 +63,6 @@ export default function ScheduleFormPanel({
   const [show, setShow] = useState(false);
   const [showMonthInput, setShowMonthInput] = useState(true);
   const [calcEndDate, setCalcEndDate] = useState("");
-
-  const getCalcEndDateStr = (d) =>
-    `${pad2(d.getFullYear() % 100)}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
   useEffect(() => {
     if (open && anchorRef?.current && panelRef.current) {
@@ -126,21 +122,21 @@ export default function ScheduleFormPanel({
     if (repeat && repeatMonths && Number(repeatMonths) > 0) {
       const d = new Date(dateStr);
       d.setMonth(d.getMonth() + Number(repeatMonths));
-      setCalcEndDate(getCalcEndDateStr(d));
+      setCalcEndDate(getShortDateStr(d));
     } else {
       setCalcEndDate("");
     }
   }, [repeat, repeatMonths, dateStr]);
 
- const handleMonthInput = (e) => {
-  let val = e.target.value.replace(/[^0-9]/g, "");
-  if (val) {
-    let num = Number(val);
-    if (num > 24) num = 24;
-    val = num.toString();
-  }
-  setRepeatMonths(val);
-};
+  const handleMonthInput = (e) => {
+    let val = e.target.value.replace(/[^0-9]/g, "");
+    if (val) {
+      let num = Number(val);
+      if (num > 24) num = 24;
+      val = num.toString();
+    }
+    setRepeatMonths(val);
+  };
 
   const handleMonthInputBlur = () => {
     if (repeatMonths && Number(repeatMonths) > 0) setShowMonthInput(false);
@@ -184,12 +180,36 @@ export default function ScheduleFormPanel({
     function toISO(dateStr, timeStr) {
       return `${dateStr}T${timeStr.length === 5 ? timeStr : "00:00"}:00`;
     }
-    const newSchedule = {
-      title,
-      startTime: toISO(dateISO, start),
-      endTime: toISO(dateISO, end),
-      isRepeating: repeat,
-    };
+
+    let schedulesToSave = [];
+    if (repeat) {
+      let endDate = new Date(date);
+      endDate.setMonth(endDate.getMonth() + Number(repeatMonths));
+      endDate.setHours(23, 59, 59, 999);
+
+      const repeatDates = getRepeatingDates({
+        startDate: date,
+        endDate,
+        repeatType,
+        ...(repeatType !== "monthly" ? { repeatDays } : {}), // monthly면 repeatDays 안 넘김
+      });
+
+      schedulesToSave = repeatDates.map(d => ({
+        title,
+        startTime: toISO(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, start),
+        endTime: toISO(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, end),
+        isRepeating: true,
+        color,
+      }));
+    } else {
+      schedulesToSave = [{
+        title,
+        startTime: toISO(dateISO, start),
+        endTime: toISO(dateISO, end),
+        isRepeating: false,
+        color,
+      }];
+    }
 
     try {
       const baseUrl = import.meta.env.VITE_API_URL || "";
@@ -200,7 +220,7 @@ export default function ScheduleFormPanel({
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(newSchedule),
+        body: JSON.stringify(schedulesToSave),
       });
       if (!res.ok) {
         let errMsg = "일정 등록 실패";
@@ -228,8 +248,6 @@ export default function ScheduleFormPanel({
       /^\d{2}:\d{2}$/.test(startTime) &&
       /^\d{2}:\d{2}$/.test(endTime)
     ));
-
-  if (!open || !anchorRef?.current) return null;
 
   function CheckSvg() {
     return (
@@ -262,14 +280,14 @@ export default function ScheduleFormPanel({
     );
   }
 
+  if (!open || !anchorRef?.current) return null;
+
   return (
     <>
-      {/* 오버레이 */}
       <div
         className={`fixed inset-0 z-40 transition-opacity duration-300 ${show ? "opacity-100" : "opacity-0 pointer-events-none"}`}
         onClick={handleClose}
       />
-      {/* 패널 */}
       <div
         ref={panelRef}
         className={`
@@ -287,7 +305,6 @@ export default function ScheduleFormPanel({
             </svg>
           </button>
         </div>
-        {/* 컬러 팔레트 */}
         <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
           <div className="flex items-center gap-2">
             <input
@@ -298,7 +315,6 @@ export default function ScheduleFormPanel({
               onChange={e => setTitle(e.target.value)}
               required
             />
-            {/* 반복 체크박스 */}
             <label className="flex items-center gap-1.5 ml-2 font-medium cursor-pointer">
               <Checkbox checked={repeat} onChange={e => setRepeat(e.target.checked)} />
               <span className="text-black font-normal text-lg">반복</span>
@@ -307,19 +323,17 @@ export default function ScheduleFormPanel({
           <div className="flex items-center gap-3">
             {COLORS.map(c => (
               <button
-                key={c.value}
+                key={c.name}
                 type="button"
                 onClick={() => setColor(c.value)}
-                className={`w-9 h-9 rounded-full border-1 ${c.bg} flex items-center justify-center ${color === c.value ? "ring-[0.4]" : "border-gray-200"}`}
+                style={{ background: c.value }}
+                className={`w-9 h-9 rounded-full flex items-center justify-center ${color === c.value ? "ring-[1.5px] ring-black" : "border-gray-200"}`}
                 aria-label={c.name}
-              >
-              </button>
+              />
             ))}
           </div>
-          {/* 날짜 + 개월 반복 한 줄 */}
           <div className="flex items-center gap-2 mb-1 mt-1">
             <img src={calendaricon} alt="달력" className="w-6 h-6 mr-2" draggable={false} />
-            {/* 읽기 전용으로 yy-mm-dd */}
             <div
               className="text-black text-[16px] border border-[#E8E8E8] rounded-[9px] px-[26px] py-[6px] select-none"
               style={{ width: "128px" }}
@@ -358,8 +372,6 @@ export default function ScheduleFormPanel({
               </>
             )}
           </div>
-
-          {/* 시간/종일 한 줄 통합 */}
           <div className="flex items-center gap-3 mt-2">
             <img src={clockicon} alt="시계" className="w-6 h-6 mr-1" draggable={false} />
             {allDay ? (
@@ -391,18 +403,14 @@ export default function ScheduleFormPanel({
                 />
               </div>
             )}
-            {/* 종일 */}
             <label className="flex items-center gap-1.5 ml-2 text-lg font-medium cursor-pointer">
               <Checkbox checked={allDay} onChange={e => setAllDay(e.target.checked)} />
               <span className="text-black text-lg font-normal">종일</span>
             </label>
           </div>
-
-          {/* 반복 옵션 (시간 설정 아래로 이동!) */}
           {repeat && (
             <>
               <div className="flex gap-2 mt-2">
-                <img src={recycle} alt="반복" className="w-6 h-6 mr-2 mt-2 -ml-[1px]" draggable={false} />
                 <select
                   className="appearance-none w-30 h-[38px] border border-[#E8E8E8] rounded-[9px] px-4 py-1 focus:outline-none focus:boarder-1 focus:border-black"
                   value={repeatType}
@@ -413,29 +421,32 @@ export default function ScheduleFormPanel({
                   <option value="monthly">매월</option>
                 </select>
               </div>
-              {/* 반복 요일 선택 */}
-              <div className="flex justify-between mt-1">
-                {DAYS.map((d, idx) => (
-                  <button
-                    type="button"
-                    key={d}
-                    className={`w-10 h-10 rounded-full flex items-center justify-center text-[16px]
-                      ${repeatDays.includes(idx) ? 'bg-black text-white' : 'bg-white text-black'}`}
-                    onClick={() => toggleDay(idx)}
-                  >
-                    {d}
-                  </button>
-                ))}
-              </div>
+              {/* ---- 매월 반복이면 요일 선택 안보임 ---- */}
+              {repeatType !== "monthly" && (
+                <div className="flex justify-between mt-1">
+                  {DAYS.map((d, idx) => (
+                    <button
+                      type="button"
+                      key={d}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center text-[16px]
+                        ${repeatDays.includes(idx) ? 'bg-black text-white' : 'bg-white text-black'}`}
+                      onClick={() => toggleDay(idx)}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              )}
             </>
           )}
-
-          {/* 등록 */}
           <button
             type="submit"
             className={`w-full py-2 rounded-md mt-3 transition font-bold text-[#00000033] ${
               canSubmit ? "bg-[#D0D0D0] text-black " : "bg-[#F4F4F4] cursor-not-allowed"
             }`}
+            style={{
+                cursor: canSubmit ? "pointer" : "not-allowed"
+              }}
             disabled={!canSubmit}
           >
             등록하기
