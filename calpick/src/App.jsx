@@ -1,9 +1,9 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import CalendarPage from './components/calendar/CalendarPage';
-import Login from './Login';
-import Signup from './Signup';
-import LoginSuccess from './LoginSuccess';
+import Login from './pages/Login';
+import Signup from './pages/Signup';
+import LoginSuccess from './pages/LoginSuccess';
 import Landing from "./pages/Landing";
 import NotFoundPage from "./pages/NotFoundPage";
 import LoadingPage from "./pages/LoadingPage";
