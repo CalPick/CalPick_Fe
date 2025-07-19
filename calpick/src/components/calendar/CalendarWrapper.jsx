@@ -17,53 +17,6 @@ export default function CalendarWrapper() {
   const [anchorRef, setAnchorRef] = useState(null);
   const [scheduleToEdit, setScheduleToEdit] = useState(null);
 
-  const dummySchedules = [
-    {
-      id: 1,
-      title: "회의",
-      description: "주간 회의",
-      startTime: "2025-07-13T10:00:00",
-      endTime: "2025-07-13T11:00:00",
-      isRepeating: false,
-      color: "#FF767680"
-    },
-    {
-      id: 2,
-      title: "스터디",
-      description: "리액트 스터디",
-      startTime: "2025-07-18T14:00:00",
-      endTime: "2025-07-18T16:00:00",
-      isRepeating: false,
-      color: "#5FC59D80"
-    },
-    {
-      id: 3,
-      title: "아카라이브에어소프트채널 ",
-      description: "",
-      startTime: "2025-07-18T17:00:00",
-      endTime: "2025-07-18T18:00:00",
-      isRepeating: false,
-      color: "#FCCB0580"
-    },
-    {
-      id: 4,
-      title: "집가고싶어요ㅠㅠ ",
-      description: "",
-      startTime: "2025-07-18T20:00:00",
-      endTime: "2025-07-18T22:00:00",
-      isRepeating: false,
-      color: "#5FC59D80"
-    },
-    {
-      id: 5,
-      title: "다이소 상하차 ",
-      description: "",
-      startTime: "2025-07-18T07:30:00",
-      endTime: "2025-07-18T08:30:00",
-      isRepeating: false,
-      color: "#5FC59D80"
-    }
-  ];
 
   function getUserIdFromToken(token) {
     try {
@@ -77,7 +30,20 @@ export default function CalendarWrapper() {
   const userId = token ? getUserIdFromToken(token) : null;
 
   const fetchSchedules = () => {
-    setSchedules(dummySchedules);
+    if (!token || !userId) {
+      setSchedules([]);
+      return;
+    }
+    axios
+      .get(
+        `${import.meta.env.VITE_API_URL}/api/schedules/monthly`,
+        {
+          params: { userId, year, month: month + 1 },
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      )
+      .then(res => setSchedules(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setSchedules([]));
   };
 
   useEffect(fetchSchedules, [year, month, token]);
