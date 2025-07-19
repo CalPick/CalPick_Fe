@@ -13,7 +13,7 @@ export default function GroupCreateModal({ onClose }) {
   const [selectedFriendIds, setSelectedFriendIds] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const [groupName, setGroupName] = useState("");  
+  const [groupName, setGroupName] = useState("");
 
   // 체크된 친구 함수
   const handleFriendToggle = (id) => {
@@ -24,35 +24,38 @@ export default function GroupCreateModal({ onClose }) {
 
   const isButtonActive = selectedFriendIds.length >= 2;
 
-  // ✅ 그룹 생성 요청
-  const handleCreateGroup = async () => {
-    if (!isButtonActive) return;
+ 
+    // ✅ 그룹 생성 요청
+    const handleCreateGroup = async () => {
+      if (!isButtonActive) return;
 
-    try {
-      const token = localStorage.getItem("token"); // 또는 다른 위치에서 가져오기
-      const res = await fetch("https://calpickbe-production.up.railway.app/api/groups", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          groupName: groupName,
-          memberIds: selectedFriendIds,
-        }),
-      });
+      try {
+        const token = localStorage.getItem("token");
+        const baseUrl = import.meta.env.VITE_API_URL;
+        const res = await fetch(`${baseUrl}/api/groups`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            groupName: groupName,
+            memberIds: selectedFriendIds,
+          }),
+        });
 
-      const data = await res.json();
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error("응답 오류:", errorText);
+          alert("그룹 생성 실패: " + errorText);
+          return;
+        }
 
-      if (!res.ok) {
-        alert(data.error || "그룹 생성 실패");
-        return;
-      }
+        const data = await res.json();
 
       alert("그룹 생성 완료!");
       onGroupCreated?.(); // 사이드바 그룹 목록 새로고침 등
-      onClose();          // 모달 닫기
-
+      onClose(); // 모달 닫기
     } catch (error) {
       console.error("그룹 생성 오류:", error);
       alert("서버 오류가 발생했습니다.");
@@ -76,7 +79,7 @@ export default function GroupCreateModal({ onClose }) {
           type="text"
           placeholder="그룹명"
           value={groupName}
-  onChange={(e) => setGroupName(e.target.value)}
+          onChange={(e) => setGroupName(e.target.value)}
           className="w-full h-[38px] border rounded-xl focus:outline-none px-[14px] py-[7px] text-[16px] font-[400]"
         />
 
@@ -131,6 +134,7 @@ export default function GroupCreateModal({ onClose }) {
           </p>
 
           <button
+            onClick={handleCreateGroup}
             className={`w-full h-[38px] rounded-[20px] py-2 text-[18px] font-[600] ${
               isButtonActive
                 ? "bg-black text-white"
