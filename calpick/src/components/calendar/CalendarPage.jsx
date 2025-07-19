@@ -9,11 +9,11 @@ import { useEffect } from "react";
 export default function CalendarPage({ userId }) {
   const navigate = useNavigate();
   const nickname = localStorage.getItem("nickname")
-  // useEffect(() => {
-  // if (!localStorage.getItem("token")) {
-  //    navigate("/landing", { replace: true });
-  //  }
-  //  }, [navigate]);
+   useEffect(() => {
+  if (!localStorage.getItem("token")) {
+     navigate("/landing", { replace: true });
+  }
+   }, [navigate]);
   function onLogout(){
     localStorage.removeItem("token");
     localStorage.removeItem("nickname");

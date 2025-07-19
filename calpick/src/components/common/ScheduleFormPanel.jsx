@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import calendaricon from '../../assets/calendaricon.svg';
 import clockicon from '../../assets/timeicon.svg';
+import trashicon from '../../assets/deleteicon.svg';
 import { getRepeatingDates } from "../common/repeatDateUtil";
 
 const COLORS = [
@@ -43,7 +44,7 @@ function handleTimeInput(setter, clamp) {
 
 export default function ScheduleFormPanel({
   open, anchorRef, date, setDate, onClose, onAddSchedule,
-  schedule, onEditSchedule
+  schedule, onEditSchedule, onDeleteSchedule
 }) {
   const panelRef = useRef(null);
   const isEditMode = !!schedule;
@@ -65,6 +66,7 @@ export default function ScheduleFormPanel({
   const [show, setShow] = useState(false);
   const [showMonthInput, setShowMonthInput] = useState(true);
   const [calcEndDate, setCalcEndDate] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (open && anchorRef?.current && panelRef.current) {
@@ -104,12 +106,14 @@ export default function ScheduleFormPanel({
       setAllDay(false);
       setStartTime("");
       setEndTime("");
+      setDeleteConfirm(false);
     };
 
     if (isEditMode && schedule) {
       setTitle(schedule.title || "");
       setColor(schedule.color || COLORS[0].value);
       setRepeat(schedule.isRepeating || false);
+      setDeleteConfirm(false);
       
       if (schedule.startTime && schedule.endTime) {
         const start = new Date(schedule.startTime);
@@ -148,6 +152,7 @@ export default function ScheduleFormPanel({
 
   const handleClose = () => {
     setShow(false);
+    setDeleteConfirm(false);
     setTimeout(onClose, 200);
   };
 
@@ -230,6 +235,12 @@ export default function ScheduleFormPanel({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (isEditMode && deleteConfirm) {
+      onDeleteSchedule(schedule.id);
+      return;
+    }
+
     const start = allDay ? "06:00" : startTime;
     const end = allDay ? "24:00" : endTime;
     
@@ -368,159 +379,183 @@ export default function ScheduleFormPanel({
         `}
         style={{ width: 380, height: 545, minWidth: 380, minHeight: 545, position: "fixed" }}
       >
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-3 flex-shrink-0">
           <div className="text-lg font-bold">{isEditMode ? "일정 수정" : "일정 등록"}</div>
-          <button type="button" onClick={handleClose} className="text-gray-400 hover:text-gray-700 ml-2">
-            <svg className="h-6 w-6" viewBox="0 0 24 24" stroke="currentColor" fill="none">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center">
+            {isEditMode && (
+              <button type="button" onClick={() => setDeleteConfirm(!deleteConfirm)} className="text-gray-500 hover:text-gray-800 mr-2 p-1">
+                <img src={trashicon} alt="삭제" className="w-7 h-7" />
+              </button>
+            )}
+            <button type="button" onClick={handleClose} className="text-gray-400 hover:text-gray-700">
+              <svg className="h-6 w-6" viewBox="0 0 24 24" stroke="currentColor" fill="none">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
-        <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              className="border border-[#E8E8E8] rounded-[9px] px-3 py-1 h-[38px] text-[16px] placeholder-[#AEAEB2] focus:outline-black focus:outline-[0.5] w-55"
-              placeholder="제목"
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              required
-            />
-            <label className="flex items-center gap-1.5 ml-2 font-medium cursor-pointer">
-              <Checkbox checked={repeat} onChange={e => setRepeat(e.target.checked)} />
-              <span className="text-black font-normal text-lg">반복</span>
-            </label>
-          </div>
-          <div className="flex items-center gap-3">
-            {COLORS.map(c => (
-              <button
-                key={c.name}
-                type="button"
-                onClick={() => setColor(c.value)}
-                style={{ background: c.value }}
-                className={`w-9 h-9 rounded-full flex items-center justify-center ${color === c.value ? "ring-[1.5px] ring-black" : "border-gray-200"}`}
-                aria-label={c.name}
-              />
-            ))}
-          </div>
-          <div className="flex items-center gap-2 mb-1 mt-1">
-            <img src={calendaricon} alt="달력" className="w-6 h-6 mr-2" draggable={false} />
-            <div
-              className="text-black text-[16px] border border-[#E8E8E8] rounded-[9px] px-[26px] py-[6px] select-none"
-              style={{ width: "128px" }}
-            >
-              {shortDateStr}
-            </div>
-            {repeat && (
-              <>
-                <span className="font-semibold">~</span>
-                {showMonthInput ? (
-                  <input
-                    id="monthInputBox"
-                    type="number"
-                    min="1"
-                    max="24"
-                    className="w-32 h-[38px] placeholder-[#AEAEB2] border pr-3 border-[#E8E8E8] rounded-[9px] px-1 py-1 text-right focus:outline-none"
-                    placeholder="+1달(기본값)"
-                    value={repeatMonths}
-                    onChange={handleMonthInput}
-                    onBlur={handleMonthInputBlur}
-                    onKeyDown={e => {
-                      if (e.key === "Enter") handleMonthInputBlur();
-                    }}
+        <form className="flex flex-col flex-grow overflow-hidden" onSubmit={handleSubmit}>
+          <div className="flex-grow overflow-y-auto -mr-3 pr-3">
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  className="border border-[#E8E8E8] rounded-[9px] px-3 py-1 h-[38px] text-[16px] placeholder-[#AEAEB2] focus:outline-black focus:outline-[0.5] w-55"
+                  placeholder="제목"
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
+                  required
+                />
+                <label className="flex items-center gap-1.5 ml-2 font-medium cursor-pointer">
+                  <Checkbox checked={repeat} onChange={e => setRepeat(e.target.checked)} />
+                  <span className="text-black font-normal text-lg">반복</span>
+                </label>
+              </div>
+              <div className="flex items-center gap-3">
+                {COLORS.map(c => (
+                  <button
+                    key={c.name}
+                    type="button"
+                    onClick={() => setColor(c.value)}
+                    style={{ background: c.value }}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center ${color === c.value ? "ring-[1.5px] ring-black" : "border-gray-200"}`}
+                    aria-label={c.name}
                   />
-                ) : (
-                  <span
-                    className="w-32 h-[38px] border border-[#E8E8E8] rounded-[9px] px-[26px] py-1.5 text-black bg-white cursor-pointer select-none"
-                    onClick={handleShowMonthInput}
-                    title="클릭해서 개월 수정"
-                  >
-                    {repeatMonths && Number(repeatMonths) > 0 && calcEndDate
-                      ? ` ${calcEndDate}`
-                      : ""}
-                  </span>
-                )}
-              </>
-            )}
-          </div>
-          <div className="flex items-center gap-3 mt-2">
-            <img src={clockicon} alt="시계" className="w-6 h-6 mr-1" draggable={false} />
-            {allDay ? (
-              <div className="flex items-center px-6 py-2 rounded-[9px] border border-gray-200 text-black text-[17px] select-none" style={{ width: "160px", height: "38px" }}>
-                06:00 ~ 24:00
+                ))}
               </div>
-            ) : (
-              <div className="flex px-4 items-center rounded-[9px] border border-gray-200 bg-white" style={{ width: "160px", height: "38px" }}>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={5}
-                  className="w-[66px] pl-[8px] pr-[0px] py-0 focus:outline-none text-black placeholder-[#AEAEB2] text-[17px]"
-                  value={startTime}
-                  onChange={handleTimeInput(setStartTime, clampStartTime)}
-                  placeholder="06:00"
-                  autoComplete="off"
-                />
-                <span className="-ml-[8.5px] -mr-1 text-[17px] text-black h-[28px]">~</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={5}
-                  className="pl-2 pr-0 py-0 w-[62px] bg-transparent focus:outline-none text-black placeholder-[#AEAEB2] text-[17px]"
-                  value={endTime}
-                  onChange={handleTimeInput(setEndTime, clampEndTime)}
-                  placeholder="24:00"
-                  autoComplete="off"
-                />
-              </div>
-            )}
-            <label className="flex items-center gap-1.5 ml-2 text-lg font-medium cursor-pointer">
-              <Checkbox checked={allDay} onChange={e => setAllDay(e.target.checked)} />
-              <span className="text-black text-lg font-normal">종일</span>
-            </label>
-          </div>
-          {repeat && (
-            <>
-              <div className="flex gap-2 mt-2">
-                <select
-                  className="appearance-none w-30 h-[38px] border border-[#E8E8E8] rounded-[9px] px-4 py-1 focus:outline-none focus:boarder-1 focus:border-black"
-                  value={repeatType}
-                  onChange={e => setRepeatType(e.target.value)}
+              <div className="flex items-center gap-2 mb-1 mt-1">
+                <img src={calendaricon} alt="달력" className="w-6 h-6 mr-2" draggable={false} />
+                <div
+                  className="text-black text-[16px] border border-[#E8E8E8] rounded-[9px] px-[26px] py-[6px] select-none"
+                  style={{ width: "128px" }}
                 >
-                  <option value="weekly">매주</option>
-                  <option value="biweekly">격주</option>
-                  <option value="monthly">매월</option>
-                </select>
-              </div>
-              {repeatType !== "monthly" && (
-                <div className="flex justify-between mt-1">
-                  {DAYS.map((d, idx) => (
-                    <button
-                      type="button"
-                      key={d}
-                      className={`w-10 h-10 rounded-full flex items-center justify-center text-[16px]
-                        ${repeatDays.includes(idx) ? 'bg-black text-white' : 'bg-white text-black'}`}
-                      onClick={() => toggleDay(idx)}
-                    >
-                      {d}
-                    </button>
-                  ))}
+                  {shortDateStr}
                 </div>
+                {repeat && (
+                  <>
+                    <span className="font-semibold">~</span>
+                    {showMonthInput ? (
+                      <input
+                        id="monthInputBox"
+                        type="number"
+                        min="1"
+                        max="24"
+                        className="w-32 h-[38px] placeholder-[#AEAEB2] border pr-3 border-[#E8E8E8] rounded-[9px] px-1 py-1 text-right focus:outline-none"
+                        placeholder="+1달(기본값)"
+                        value={repeatMonths}
+                        onChange={handleMonthInput}
+                        onBlur={handleMonthInputBlur}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") handleMonthInputBlur();
+                        }}
+                      />
+                    ) : (
+                      <span
+                        className="w-32 h-[38px] border border-[#E8E8E8] rounded-[9px] px-[26px] py-1.5 text-black bg-white cursor-pointer select-none"
+                        onClick={handleShowMonthInput}
+                        title="클릭해서 개월 수정"
+                      >
+                        {repeatMonths && Number(repeatMonths) > 0 && calcEndDate
+                          ? ` ${calcEndDate}`
+                          : ""}
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
+              <div className="flex items-center gap-3 mt-2">
+                <img src={clockicon} alt="시계" className="w-6 h-6 mr-1" draggable={false} />
+                {allDay ? (
+                  <div className="flex items-center px-6 py-2 rounded-[9px] border border-gray-200 text-black text-[17px] select-none" style={{ width: "160px", height: "38px" }}>
+                    06:00 ~ 24:00
+                  </div>
+                ) : (
+                  <div className="flex px-4 items-center rounded-[9px] border border-gray-200 bg-white" style={{ width: "160px", height: "38px" }}>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={5}
+                      className="w-[66px] pl-[8px] pr-[0px] py-0 focus:outline-none text-black placeholder-[#AEAEB2] text-[17px]"
+                      value={startTime}
+                      onChange={handleTimeInput(setStartTime, clampStartTime)}
+                      placeholder="06:00"
+                      autoComplete="off"
+                    />
+                    <span className="-ml-[8.5px] -mr-1 text-[17px] text-black h-[28px]">~</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={5}
+                      className="pl-2 pr-0 py-0 w-[62px] bg-transparent focus:outline-none text-black placeholder-[#AEAEB2] text-[17px]"
+                      value={endTime}
+                      onChange={handleTimeInput(setEndTime, clampEndTime)}
+                      placeholder="24:00"
+                      autoComplete="off"
+                    />
+                  </div>
+                )}
+                <label className="flex items-center gap-1.5 ml-2 text-lg font-medium cursor-pointer">
+                  <Checkbox checked={allDay} onChange={e => setAllDay(e.target.checked)} />
+                  <span className="text-black text-lg font-normal">종일</span>
+                </label>
+              </div>
+              {repeat && (
+                <>
+                  <div className="flex gap-2 mt-2">
+                    <select
+                      className="appearance-none w-30 h-[38px] border border-[#E8E8E8] rounded-[9px] px-4 py-1 focus:outline-none focus:boarder-1 focus:border-black"
+                      value={repeatType}
+                      onChange={e => setRepeatType(e.target.value)}
+                    >
+                      <option value="weekly">매주</option>
+                      <option value="biweekly">격주</option>
+                      <option value="monthly">매월</option>
+                    </select>
+                  </div>
+                  {repeatType !== "monthly" && (
+                    <div className="flex justify-between mt-1">
+                      {DAYS.map((d, idx) => (
+                        <button
+                          type="button"
+                          key={d}
+                          className={`w-10 h-10 rounded-full flex items-center justify-center text-[16px]
+                            ${repeatDays.includes(idx) ? 'bg-black text-white' : 'bg-white text-black'}`}
+                          onClick={() => toggleDay(idx)}
+                        >
+                          {d}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
-            </>
-          )}
-          <button
-            type="submit"
-            className={`w-full py-2 rounded-md mt-3 transition font-bold text-[#00000033] ${
-              canSubmit ? "bg-[#D0D0D0] text-black " : "bg-[#F4F4F4] cursor-not-allowed"
-            }`}
-            style={{
-                cursor: canSubmit ? "pointer" : "not-allowed"
+            </div>
+          </div>
+          
+          <div className="py-12">
+            {isEditMode && deleteConfirm && (
+              <div className="text-[#B3261E] text-center font-semibold text-sm my-1">
+                일정을 삭제하면 되돌릴수없습니다.
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className={`w-full py-2 rounded-md transition font-bold ${
+                isEditMode && deleteConfirm
+                  ? "bg-[#D0D0D0] text-black"
+                  : canSubmit
+                  ? "bg-[#D0D0D0] text-black"
+                  : "bg-[#F4F4F4] text-[#00000033] cursor-not-allowed"
+              }`}
+              style={{
+                cursor: (canSubmit || (isEditMode && deleteConfirm)) ? "pointer" : "not-allowed",
               }}
-            disabled={!canSubmit}
-          >
-            {isEditMode ? "수정하기" : "등록하기"}
-          </button>
+              disabled={!canSubmit && !(isEditMode && deleteConfirm)}
+            >
+              {isEditMode ? (deleteConfirm ? "삭제하기" : "수정하기") : "등록하기"}
+            </button>
+          </div>
         </form>
       </div>
     </>

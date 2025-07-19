@@ -17,7 +17,6 @@ export default function CalendarWrapper() {
   const [anchorRef, setAnchorRef] = useState(null);
   const [scheduleToEdit, setScheduleToEdit] = useState(null);
 
-
   function getUserIdFromToken(token) {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
@@ -93,6 +92,32 @@ export default function CalendarWrapper() {
     } catch (error) {
       console.error("일정 수정 실패:", error);
       const errorMessage = error.response?.data?.error || "일정 수정 중 오류가 발생했습니다.";
+      alert(errorMessage);
+    }
+  };
+
+  const handleDeleteSchedule = async (scheduleId) => {
+    if (!token || !scheduleId) {
+      alert("인증 정보가 없거나 삭제할 일정이 선택되지 않았습니다.");
+      return;
+    }
+
+    try {
+      await axios.delete(
+        `${import.meta.env.VITE_API_URL}/api/schedules/${scheduleId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      setSchedules(schedules.filter((s) => s.id !== scheduleId));
+
+      alert("일정이 성공적으로 삭제되었습니다.");
+      handlePanelClose();
+    } catch (error) {
+      console.error("일정 삭제 실패:", error);
+      const errorMessage =
+        error.response?.data?.error || "일정 삭제 중 오류가 발생했습니다.";
       alert(errorMessage);
     }
   };
@@ -178,6 +203,7 @@ export default function CalendarWrapper() {
           onClose={handlePanelClose}
           onAddSchedule={fetchSchedules}
           onEditSchedule={handleUpdateSchedule}
+          onDeleteSchedule={handleDeleteSchedule}
           schedule={panelType === 'edit' ? scheduleToEdit : null}
         />
       )}
