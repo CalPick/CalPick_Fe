@@ -40,7 +40,7 @@ export default function CalendarPage({ userId }) {
       </header>
 
       {/* 사이드바 */}
-      <aside className="absolute top-[100px] left-[130px]">
+      <aside>
         <Sidebar />
       </aside>
 
