@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from "react";
 import calendaricon from '../../assets/calendaricon.svg';
 import clockicon from '../../assets/timeicon.svg';
 import trashicon from '../../assets/deleteicon.svg';
+import recycleicon from '../../assets/recycle.svg'; // 아이콘 임포트
 import { getRepeatingDates } from "../common/repeatDateUtil";
 
 const COLORS = [
@@ -22,17 +23,18 @@ function clampStartTime(val) {
   if (h === 23 && m > 59) m = 59;
   return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 }
+
+// Modified to cap at 23:59
 function clampEndTime(val) {
   if (!/^\d{2}:\d{2}$/.test(val)) return "";
   let [h, m] = val.split(":").map(Number);
   if (h < 6) return "06:01";
   if (h === 6 && m < 1) return "06:01";
-  if (h > 24) return "24:00";
-  if (h === 24) return m === 0 ? "24:00" : "24:00";
-  if (h === 23 && m > 59) m = 59;
-  if (h < 24 && m > 59) m = 59;
+  if (h >= 24) return "23:59";
+  if (m > 59) m = 59;
   return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 }
+
 function handleTimeInput(setter, clamp) {
   return (e) => {
     let val = e.target.value.replace(/[^\d]/g, "").slice(0, 4);
@@ -123,13 +125,10 @@ export default function ScheduleFormPanel({
         let endTimeStr = `${pad(end.getHours())}:${pad(end.getMinutes())}`;
 
         if (end.getHours() === 23 && end.getMinutes() === 59) {
-          endTimeStr = "24:00";
+          endTimeStr = "23:59";
         }
-        if (end.getHours() === 0 && end.getMinutes() === 0 && end > start) {
-           endTimeStr = "24:00";
-        }
-
-        const isAllDay = startTimeStr === "06:00" && endTimeStr === "24:00";
+        
+        const isAllDay = startTimeStr === "06:00" && endTimeStr === "23:59";
         setAllDay(isAllDay);
 
         if (isAllDay) {
@@ -211,6 +210,7 @@ export default function ScheduleFormPanel({
     }, 50);
   };
 
+  // Modified to cap at 23:59
   useEffect(() => {
     if (
       /^\d{2}:\d{2}$/.test(startTime) &&
@@ -223,11 +223,11 @@ export default function ScheduleFormPanel({
           h += 1;
           m = 0;
         }
-        if (h > 24 || (h === 24 && m > 0)) {
-          setEndTime("24:00");
+        if (h >= 24) {
+          setEndTime("23:59");
         } else {
           const newEnd = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
-          setEndTime(newEnd > "24:00" ? "24:00" : newEnd);
+          setEndTime(newEnd);
         }
       }
     }
@@ -242,7 +242,7 @@ export default function ScheduleFormPanel({
     }
 
     const start = allDay ? "06:00" : startTime;
-    const end = allDay ? "24:00" : endTime;
+    const end = allDay ? "23:59" : endTime; // Modified to 23:59
     
     function toISO(dateStr, timeStr) {
       return `${dateStr}T${timeStr.length === 5 ? timeStr : "00:00"}:00`;
@@ -295,26 +295,34 @@ export default function ScheduleFormPanel({
       try {
         const baseUrl = import.meta.env.VITE_API_URL || "";
         const token = localStorage.getItem("token");
-        const res = await fetch(`${baseUrl}/api/schedules`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(schedulesToSave),
-        });
-        if (!res.ok) {
-          let errMsg = "일정 등록 실패";
+
+        const promises = schedulesToSave.map(scheduleToSave => 
+          fetch(`${baseUrl}/api/schedules`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(scheduleToSave),
+          })
+        );
+
+        const responses = await Promise.all(promises);
+
+        const allOk = responses.every(res => res.ok);
+
+        if (allOk) {
+          onAddSchedule?.();
+          onClose();
+        } else {
+          const failedResponse = responses.find(res => !res.ok);
+          let errMsg = `일정 등록 실패 (상태: ${failedResponse.status})`;
           try {
-            const err = await res.json();
+            const err = await failedResponse.json();
             errMsg = err.message || errMsg;
           } catch {}
           alert(errMsg);
-          return;
         }
-        const data = await res.json();
-        onAddSchedule?.(data);
-        onClose();
       } catch (error) {
         alert("네트워크 오류로 일정 등록에 실패했습니다.");
         console.error(error);
@@ -395,8 +403,8 @@ export default function ScheduleFormPanel({
           </div>
         </div>
         <form className="flex flex-col flex-grow overflow-hidden" onSubmit={handleSubmit}>
-          <div className="flex-grow overflow-y-auto -mr-3 pr-3">
-            <div className="flex flex-col gap-3">
+          <div className="flex-grow overflow-y-auto -mr-3 pr-3 pt-[2px]">
+            <div className="flex flex-col gap-3 ml-[2px]">
               <div className="flex items-center gap-2">
                 <input
                   type="text"
@@ -463,11 +471,11 @@ export default function ScheduleFormPanel({
                   </>
                 )}
               </div>
-              <div className="flex items-center gap-3 mt-2">
+              <div className="flex items-center gap-3 mt-0">
                 <img src={clockicon} alt="시계" className="w-6 h-6 mr-1" draggable={false} />
                 {allDay ? (
                   <div className="flex items-center px-6 py-2 rounded-[9px] border border-gray-200 text-black text-[17px] select-none" style={{ width: "160px", height: "38px" }}>
-                    06:00 ~ 24:00
+                    06:00 ~ 23:59
                   </div>
                 ) : (
                   <div className="flex px-4 items-center rounded-[9px] border border-gray-200 bg-white" style={{ width: "160px", height: "38px" }}>
@@ -489,7 +497,7 @@ export default function ScheduleFormPanel({
                       className="pl-2 pr-0 py-0 w-[62px] bg-transparent focus:outline-none text-black placeholder-[#AEAEB2] text-[17px]"
                       value={endTime}
                       onChange={handleTimeInput(setEndTime, clampEndTime)}
-                      placeholder="24:00"
+                      placeholder="23:59"
                       autoComplete="off"
                     />
                   </div>
@@ -501,7 +509,8 @@ export default function ScheduleFormPanel({
               </div>
               {repeat && (
                 <>
-                  <div className="flex gap-2 mt-2">
+                  <div className="flex items-center gap-2 mt-1"> {/* flex와 items-center 추가 */}
+                    <img src={recycleicon} alt="반복" className="w-6 h-6 mr-1" draggable={false} />
                     <select
                       className="appearance-none w-30 h-[38px] border border-[#E8E8E8] rounded-[9px] px-4 py-1 focus:outline-none focus:boarder-1 focus:border-black"
                       value={repeatType}

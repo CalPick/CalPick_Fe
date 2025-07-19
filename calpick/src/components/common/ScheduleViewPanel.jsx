@@ -7,7 +7,7 @@ const CELL_HEIGHT = 18;
 const FRAME_WIDTH = COL_WIDTH * 2 + 50;
 const FRAME_HEIGHT = CELL_HEIGHT * HOURS.length;
 
-const SCHEDULE_LEFTS = [43, 165];
+const SCHEDULE_LEFTS = [42, 165];
 
 const pad = n => n.toString().padStart(2, "0");
 const pad2 = n => n.toString().padStart(2, "0");
@@ -34,9 +34,9 @@ function getScheduleBars(startTime, endTime, title, color) {
   for (let i = startIdx; i < endIdx; i++) {
     const isRightColumn = SCHEDULE_LEFTS[i % 2] === 165;
     bars.push({
-      left: SCHEDULE_LEFTS[i % 2],
+      left: SCHEDULE_LEFTS[i % 2] -1,
       top: i * (CELL_HEIGHT / 2) + (isRightColumn ? -9 : 0),
-      width: COL_WIDTH + 2,
+      width: COL_WIDTH + 3,
       height: (CELL_HEIGHT / 2) + 9,
       color,
       title: i === startIdx ? title : "",

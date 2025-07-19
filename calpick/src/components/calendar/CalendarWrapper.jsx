@@ -86,7 +86,6 @@ export default function CalendarWrapper() {
 
       setSchedules(schedules.map(s => s.id === updatedSchedule.id ? updatedSchedule : s));
       
-      alert("일정이 성공적으로 수정되었습니다.");
       handlePanelClose();
 
     } catch (error) {
@@ -111,8 +110,6 @@ export default function CalendarWrapper() {
       );
 
       setSchedules(schedules.filter((s) => s.id !== scheduleId));
-
-      alert("일정이 성공적으로 삭제되었습니다.");
       handlePanelClose();
     } catch (error) {
       console.error("일정 삭제 실패:", error);
