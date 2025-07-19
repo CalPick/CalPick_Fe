@@ -62,29 +62,41 @@ function Signup() {
     setBirth(newValue);
   };
 
-  const handleDuplicateCheck = async () => {
-    // ✅ GET 방식으로 중복 검사 요청 변경
-    const baseUrl = import.meta.env.VITE_API_URL || "";
-    const url = `${baseUrl}/users/is-duplicate-id?id=${userId}`;
+ const handleDuplicateCheck = async () => {
+  const baseUrl = import.meta.env.VITE_API_URL || "";
+  const url = `${baseUrl}/api/auth/check?userId=${encodeURIComponent(userId)}`;
 
-    try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error("중복 검사 실패");
-
-      const data = await response.json();
-      if (data.isDuplicatedId) {
-        setIdError("이미 존재하는 아이디입니다.");
-        setIsDuplicate(false);
-      } else {
-        setIdError("");
-        setIsDuplicate(true);
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json"
       }
-      setIdChecked(true);
-    } catch (error) {
-      setIdError("서버 호출 중 오류가 발생했습니다.");
+    });
+
+    const text = await response.text();
+    let data = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (e) {
+      console.warn("JSON parse failed:", text);
+    }
+
+    if (response.ok) {
+      setIdError("");
+      setIsDuplicate(true);
+    } else {
+      setIdError(data.error || "중복 검사 실패");
       setIsDuplicate(false);
     }
-  };
+
+    setIdChecked(true);
+  } catch (error) {
+    console.error("중복 체크 에러:", error);
+    setIdError("서버 호출 중 오류가 발생했습니다.");
+    setIsDuplicate(false);
+  }
+};
 
   const isFormValid = // 가입하기 활성화
     userId.length >= 3 &&

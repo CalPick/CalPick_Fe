@@ -42,9 +42,11 @@ function handleTimeInput(setter, clamp) {
 }
 
 export default function ScheduleFormPanel({
-  open, anchorRef, date, setDate, onClose, onAddSchedule
+  open, anchorRef, date, setDate, onClose, onAddSchedule,
+  schedule, onEditSchedule
 }) {
   const panelRef = useRef(null);
+  const isEditMode = !!schedule;
 
   const getShortDateStr = (d) =>
     `${pad2(d.getFullYear() % 100)}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -56,7 +58,7 @@ export default function ScheduleFormPanel({
   const [repeat, setRepeat] = useState(false);
   const [repeatType, setRepeatType] = useState("weekly");
   const [repeatMonths, setRepeatMonths] = useState("1");
-  const [repeatDays, setRepeatDays] = useState([date.getDay()]);
+  const [repeatDays, setRepeatDays] = useState(date ? [date.getDay()] : []);
   const [allDay, setAllDay] = useState(false);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
@@ -90,6 +92,60 @@ export default function ScheduleFormPanel({
     if (open) setTimeout(() => setShow(true), 10);
     else setShow(false);
   }, [open]);
+
+  useEffect(() => {
+    const resetForm = () => {
+      setTitle("");
+      setColor(COLORS[0].value);
+      setRepeat(false);
+      setRepeatType("weekly");
+      setRepeatMonths("1");
+      setRepeatDays(date ? [date.getDay()] : []);
+      setAllDay(false);
+      setStartTime("");
+      setEndTime("");
+    };
+
+    if (isEditMode && schedule) {
+      setTitle(schedule.title || "");
+      setColor(schedule.color || COLORS[0].value);
+      setRepeat(schedule.isRepeating || false);
+      
+      if (schedule.startTime && schedule.endTime) {
+        const start = new Date(schedule.startTime);
+        const end = new Date(schedule.endTime);
+        
+        let startTimeStr = `${pad(start.getHours())}:${pad(start.getMinutes())}`;
+        let endTimeStr = `${pad(end.getHours())}:${pad(end.getMinutes())}`;
+
+        if (end.getHours() === 23 && end.getMinutes() === 59) {
+          endTimeStr = "24:00";
+        }
+        if (end.getHours() === 0 && end.getMinutes() === 0 && end > start) {
+           endTimeStr = "24:00";
+        }
+
+        const isAllDay = startTimeStr === "06:00" && endTimeStr === "24:00";
+        setAllDay(isAllDay);
+
+        if (isAllDay) {
+          setStartTime("");
+          setEndTime("");
+        } else {
+          setStartTime(startTimeStr);
+          setEndTime(endTimeStr);
+        }
+      } else {
+        setAllDay(false);
+        setStartTime("");
+        setEndTime("");
+      }
+    } else {
+      resetForm();
+    }
+  }, [isEditMode, schedule, date]);
+
+
   const handleClose = () => {
     setShow(false);
     setTimeout(onClose, 200);
@@ -174,69 +230,84 @@ export default function ScheduleFormPanel({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const dateISO = dateStr;
     const start = allDay ? "06:00" : startTime;
     const end = allDay ? "24:00" : endTime;
+    
     function toISO(dateStr, timeStr) {
       return `${dateStr}T${timeStr.length === 5 ? timeStr : "00:00"}:00`;
     }
 
-    let schedulesToSave = [];
-    if (repeat) {
-      let endDate = new Date(date);
-      endDate.setMonth(endDate.getMonth() + Number(repeatMonths));
-      endDate.setHours(23, 59, 59, 999);
-
-      const repeatDates = getRepeatingDates({
-        startDate: date,
-        endDate,
-        repeatType,
-        ...(repeatType !== "monthly" ? { repeatDays } : {}), // monthly면 repeatDays 안 넘김
-      });
-
-      schedulesToSave = repeatDates.map(d => ({
-        title,
-        startTime: toISO(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, start),
-        endTime: toISO(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, end),
-        isRepeating: true,
-        color,
-      }));
-    } else {
-      schedulesToSave = [{
+    if (isEditMode) {
+      const dateISO = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+      const updatedData = {
+        id: schedule.id,
         title,
         startTime: toISO(dateISO, start),
         endTime: toISO(dateISO, end),
-        isRepeating: false,
+        isRepeating: repeat,
         color,
-      }];
-    }
+      };
+      onEditSchedule(updatedData);
 
-    try {
-      const baseUrl = import.meta.env.VITE_API_URL || "";
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${baseUrl}/api/schedules`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(schedulesToSave),
-      });
-      if (!res.ok) {
-        let errMsg = "일정 등록 실패";
-        try {
-          const err = await res.json();
-          errMsg = err.message || errMsg;
-        } catch {}
-        alert(errMsg);
-        return;
+    } else {
+      const dateISO = dateStr;
+      let schedulesToSave = [];
+      if (repeat) {
+        let endDate = new Date(date);
+        endDate.setMonth(endDate.getMonth() + Number(repeatMonths));
+        endDate.setHours(23, 59, 59, 999);
+
+        const repeatDates = getRepeatingDates({
+          startDate: date,
+          endDate,
+          repeatType,
+          ...(repeatType !== "monthly" ? { repeatDays } : {}),
+        });
+
+        schedulesToSave = repeatDates.map(d => ({
+          title,
+          startTime: toISO(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, start),
+          endTime: toISO(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, end),
+          isRepeating: true,
+          color,
+        }));
+      } else {
+        schedulesToSave = [{
+          title,
+          startTime: toISO(dateISO, start),
+          endTime: toISO(dateISO, end),
+          isRepeating: false,
+          color,
+        }];
       }
-      const data = await res.json();
-      onAddSchedule?.(data);
-      onClose();
-    } catch (error) {
-      alert("네트워크 오류로 일정 등록에 실패했습니다.");
-      console.error(error);
+
+      try {
+        const baseUrl = import.meta.env.VITE_API_URL || "";
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${baseUrl}/api/schedules`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(schedulesToSave),
+        });
+        if (!res.ok) {
+          let errMsg = "일정 등록 실패";
+          try {
+            const err = await res.json();
+            errMsg = err.message || errMsg;
+          } catch {}
+          alert(errMsg);
+          return;
+        }
+        const data = await res.json();
+        onAddSchedule?.(data);
+        onClose();
+      } catch (error) {
+        alert("네트워크 오류로 일정 등록에 실패했습니다.");
+        console.error(error);
+      }
     }
   };
 
@@ -298,7 +369,7 @@ export default function ScheduleFormPanel({
         style={{ width: 380, height: 545, minWidth: 380, minHeight: 545, position: "fixed" }}
       >
         <div className="flex items-center justify-between mb-3">
-          <div className="text-lg font-bold">일정 등록</div>
+          <div className="text-lg font-bold">{isEditMode ? "일정 수정" : "일정 등록"}</div>
           <button type="button" onClick={handleClose} className="text-gray-400 hover:text-gray-700 ml-2">
             <svg className="h-6 w-6" viewBox="0 0 24 24" stroke="currentColor" fill="none">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -421,7 +492,6 @@ export default function ScheduleFormPanel({
                   <option value="monthly">매월</option>
                 </select>
               </div>
-              {/* ---- 매월 반복이면 요일 선택 안보임 ---- */}
               {repeatType !== "monthly" && (
                 <div className="flex justify-between mt-1">
                   {DAYS.map((d, idx) => (
@@ -449,7 +519,7 @@ export default function ScheduleFormPanel({
               }}
             disabled={!canSubmit}
           >
-            등록하기
+            {isEditMode ? "수정하기" : "등록하기"}
           </button>
         </form>
       </div>

@@ -3,7 +3,7 @@ import CalendarHeader from "./CalendarHeader";
 import CalendarGrid from "./CalendarGrid";
 import WeekdayRow from "./WeekdayRow";
 import ScheduleFormPanel from "../common/ScheduleFormPanel";
-import ScheduleViewPanel from "../common/ScheduleViewPanel"; // 새로 추가!
+import ScheduleViewPanel from "../common/ScheduleViewPanel";
 import axios from "axios";
 
 export default function CalendarWrapper() {
@@ -12,9 +12,58 @@ export default function CalendarWrapper() {
   const [month, setMonth] = useState(today.getMonth());
   const [schedules, setSchedules] = useState([]);
   const [panelOpen, setPanelOpen] = useState(false);
-  const [panelType, setPanelType] = useState(null); // "view" or "add"
+  const [panelType, setPanelType] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [anchorRef, setAnchorRef] = useState(null);
+  const [scheduleToEdit, setScheduleToEdit] = useState(null);
+
+  const dummySchedules = [
+    {
+      id: 1,
+      title: "회의",
+      description: "주간 회의",
+      startTime: "2025-07-13T10:00:00",
+      endTime: "2025-07-13T11:00:00",
+      isRepeating: false,
+      color: "#FF767680"
+    },
+    {
+      id: 2,
+      title: "스터디",
+      description: "리액트 스터디",
+      startTime: "2025-07-18T14:00:00",
+      endTime: "2025-07-18T16:00:00",
+      isRepeating: false,
+      color: "#5FC59D80"
+    },
+    {
+      id: 3,
+      title: "아카라이브에어소프트채널 ",
+      description: "",
+      startTime: "2025-07-18T17:00:00",
+      endTime: "2025-07-18T18:00:00",
+      isRepeating: false,
+      color: "#FCCB0580"
+    },
+    {
+      id: 4,
+      title: "집가고싶어요ㅠㅠ ",
+      description: "",
+      startTime: "2025-07-18T20:00:00",
+      endTime: "2025-07-18T22:00:00",
+      isRepeating: false,
+      color: "#5FC59D80"
+    },
+    {
+      id: 5,
+      title: "다이소 상하차 ",
+      description: "",
+      startTime: "2025-07-18T07:30:00",
+      endTime: "2025-07-18T08:30:00",
+      isRepeating: false,
+      color: "#5FC59D80"
+    }
+  ];
 
   function getUserIdFromToken(token) {
     try {
@@ -27,27 +76,12 @@ export default function CalendarWrapper() {
   const token = localStorage.getItem("token");
   const userId = token ? getUserIdFromToken(token) : null;
 
-  // 일정 불러오기
   const fetchSchedules = () => {
-    if (!token || !userId) {
-      setSchedules([]);
-      return;
-    }
-    axios
-      .get(
-        `${import.meta.env.VITE_API_URL}/api/schedules/monthly`,
-        {
-          params: { userId, year, month: month + 1 },
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      )
-      .then(res => setSchedules(Array.isArray(res.data) ? res.data : []))
-      .catch(() => setSchedules([]));
+    setSchedules(dummySchedules);
   };
 
   useEffect(fetchSchedules, [year, month, token]);
 
-  // 달력 셀 클릭
   const handleCellClick = (date, cellRef, hasSchedule = false) => {
     setSelectedDate(date);
     setAnchorRef(cellRef);
@@ -60,6 +94,41 @@ export default function CalendarWrapper() {
     setSelectedDate(null);
     setAnchorRef(null);
     setPanelType(null);
+    setScheduleToEdit(null);
+  };
+
+  const handleEditClick = (schedule) => {
+    setScheduleToEdit(schedule);
+    setPanelType("edit");
+  };
+
+  const handleUpdateSchedule = async (updatedData) => {
+    if (!token || !scheduleToEdit?.id) {
+      alert("인증 정보가 없거나 수정할 일정이 선택되지 않았습니다.");
+      return;
+    }
+
+    try {
+      const response = await axios.put(
+        `${import.meta.env.VITE_API_URL}/api/schedules/${scheduleToEdit.id}`,
+        updatedData,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      const updatedSchedule = Array.isArray(response.data) ? response.data[0] : response.data; 
+
+      setSchedules(schedules.map(s => s.id === updatedSchedule.id ? updatedSchedule : s));
+      
+      alert("일정이 성공적으로 수정되었습니다.");
+      handlePanelClose();
+
+    } catch (error) {
+      console.error("일정 수정 실패:", error);
+      const errorMessage = error.response?.data?.error || "일정 수정 중 오류가 발생했습니다.";
+      alert(errorMessage);
+    }
   };
 
   const handlePrevMonth = () => {
@@ -91,7 +160,6 @@ export default function CalendarWrapper() {
   };
   const dates = getDates(year, month);
 
-  // 달력에 전달: 셀별로 해당 날짜에 일정 있는지 여부 전달
   const cellClickHandler = (date, ref) => {
     const hasSchedule = schedules.some(sch => {
       const dt = new Date(sch.startTime);
@@ -124,7 +192,6 @@ export default function CalendarWrapper() {
           />
         </div>
       </div>
-      {/* 일정조회 패널 */}
       {panelOpen && selectedDate && anchorRef && panelType === "view" && (
         <ScheduleViewPanel
           open={true}
@@ -133,10 +200,10 @@ export default function CalendarWrapper() {
           schedules={schedules}
           onAddClick={() => setPanelType("add")}
           onClose={handlePanelClose}
+          onEditClick={handleEditClick}
         />
       )}
-      {/* 일정추가 패널 */}
-      {panelOpen && selectedDate && anchorRef && panelType === "add" && (
+      {panelOpen && selectedDate && anchorRef && (panelType === "add" || panelType === "edit") && (
         <ScheduleFormPanel
           open={true}
           anchorRef={anchorRef}
@@ -144,6 +211,8 @@ export default function CalendarWrapper() {
           setDate={setSelectedDate}
           onClose={handlePanelClose}
           onAddSchedule={fetchSchedules}
+          onEditSchedule={handleUpdateSchedule}
+          schedule={panelType === 'edit' ? scheduleToEdit : null}
         />
       )}
     </>

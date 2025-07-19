@@ -14,7 +14,6 @@ export default function CalendarGrid({
   const suffixDates = Array.from({ length: totalCells - prefixDates.length - dates.length }).fill(null);
   const allDates = [...prefixDates, ...dates, ...suffixDates];
 
-  // 각 셀 클릭: 일정 있으면 true, 없으면 false로 onDateClick에 전달
   function handleCellClick(date, ref) {
     if (!date) return;
     const dstr = date.toISOString().slice(0, 10);
@@ -29,10 +28,11 @@ export default function CalendarGrid({
         const isLastRow = Math.floor(idx / 7) === 5;
         const cellRef = useRef();
         const isSelected = date && selectedDate && date.toDateString() === selectedDate.toDateString();
+        const key = date ? date.toISOString() : `empty-${idx}`; // <-- map 내부로 이동
 
         return (
           <CalendarCell
-            key={idx}
+            key={key}
             ref={cellRef}
             date={date}
             onClick={() => handleCellClick(date, cellRef)}

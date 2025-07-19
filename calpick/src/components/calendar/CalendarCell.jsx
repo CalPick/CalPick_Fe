@@ -58,11 +58,11 @@ const CalendarCell = forwardRef(function CalendarCell(
         }
       </div>
       <div className="relative z-10 w-full mt-2">
-        {shown.map(sch => (
-          <ScheduleTag key={sch.id} title={sch.title} color={sch.color} />
+        {shown.map((sch, idx) => (
+          <ScheduleTag key={sch.id || `${dateStr}-${idx}`} title={sch.title} color={sch.color} />
         ))}
         {hiddenCount > 0 && (
-          <div className="text-xs mt-1 ml-1 text-gray-500 font-bold">
+          <div className="text-[13px] mt-1 ml-1 text-black">
             +{hiddenCount}
           </div>
         )}
@@ -71,4 +71,5 @@ const CalendarCell = forwardRef(function CalendarCell(
     </div>
   );
 });
+
 export default CalendarCell;
