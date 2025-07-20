@@ -7,6 +7,7 @@ import GroupCreateModal from "./GroupCreateModal";
 import InboxModal from "./GroupInboxModal";
 import FriendsInboxModal from "./FriendsInboxModal";
 import FriendInviteModal from "./FriendInviteModal";
+import GroupViewModal from "./GroupViewModal";
 
 // //목업 데이터
 // const friendList = [
@@ -25,6 +26,7 @@ function Sidebar() {
   const [isInboxOpen, setIsInboxOpen] = useState(false);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [showFriendInbox, setShowFriendInbox] = useState(false);
+  const [showGroupViewModal, setShowGroupViewModal] = useState(false);
 
   const [groupList, setGroupList] = useState([]);
   const [friendList, setFriendList] = useState([]);
@@ -33,13 +35,14 @@ function Sidebar() {
     setFriendList((prevList) => [...prevList, newFriend]);
   };
 
+
   const openGroupModal = () => setIsGroupModalOpen(true);
   const closeGroupModal = () => setIsGroupModalOpen(false);
   const openInboxModal = () => setIsInboxOpen(true);
   const closeInboxModal = () => setIsInboxOpen(false);
   const openInviteModal = () => setIsInviteOpen(true);
   const closeInviteModal = () => setIsInviteOpen(false);
-  // ✅ 그룹 목록 불러오기 함수
+
   const fetchGroups = async () => {
     const token = localStorage.getItem("token");
     const userId = localStorage.getItem("userId");
@@ -136,6 +139,7 @@ function Sidebar() {
           onGroupCreated={fetchGroups}
         />
       )}
+      
       {isInviteOpen && (
         <FriendInviteModal
           onClose={closeInviteModal}

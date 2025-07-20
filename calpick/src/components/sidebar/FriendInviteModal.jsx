@@ -8,67 +8,61 @@ function FriendInviteModal({ onClose, onFriendAdded }) {
   const [errorMessage, setErrorMessage] = useState("");
   const [isHovered, setIsHovered] = useState(false);
 
-  const handleSendRequest = async () => {
-    const trimmedId = inputId.trim();
-    if (!trimmedId) return;
+ const handleSendRequest = async () => {
+  const trimmedId = inputId.trim();
+  if (!trimmedId) return;
 
-    const token = localStorage.getItem("token");
-    const currentUserId = localStorage.getItem("userId");
+  const token = localStorage.getItem("token");
 
-    try {
-      // 1. 아이디 존재 여부 확인 (아이디 중복확인 API)
-      const checkRes = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/auth/check-id/${trimmedId}`,
+  try {
+    // 1. 아이디 존재 여부 확인
+    const checkRes = await fetch(
+      `${import.meta.env.VITE_API_URL}/api/auth/check?userId=${encodeURIComponent(trimmedId)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (checkRes.status === 409) {
+      // 2. 존재하는 아이디 → 친구 요청 보내기
+      const friendReqRes = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/friends/request`,
         {
+          method: "POST",
           headers: {
+            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
+          body: JSON.stringify({
+            targetUserId: trimmedId,
+          }),
         }
       );
 
-      const checkData = await checkRes.json();
-
-      if (checkData.available === false) {
-        // 2. 아이디가 존재함 → 친구 요청 보내기
-        const friendReqRes = await fetch(
-          `${import.meta.env.VITE_API_URL}/api/friends`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              fromUserId: currentUserId,
-              toUserId: trimmedId,
-            }),
-          }
-        );
-
-        if (!friendReqRes.ok) {
-          const errText = await friendReqRes.text();
-          console.error("친구 요청 실패:", errText);
-          setErrorMessage("친구 요청 중 오류가 발생했습니다.");
-          return;
-        }
-
-        const newFriend = await friendReqRes.json();
-
-        // 3. 친구 목록에 반영
-        onFriendAdded({
-          id: newFriend.id,
-          name: newFriend.name,
-        });
-
-        onClose();
-      } else {
-        setErrorMessage("존재하지 않는 사용자입니다.");
+      if (!friendReqRes.ok) {
+        const errText = await friendReqRes.text();
+        console.error("친구 요청 실패:", errText);
+        setErrorMessage("이미 친구 요청을 보냈거나 요청할 수 없습니다.");
+        return;
       }
-    } catch (error) {
-      console.error("요청 실패:", error);
-      setErrorMessage("네트워크 오류가 발생했습니다.");
+
+      // 요청 성공 시 모달 닫기 및 부모 컴포넌트에 알림
+      onFriendAdded({ id: trimmedId, name: trimmedId });
+      onClose();
+    } else if (checkRes.status === 200) {
+      setErrorMessage("존재하지 않는 사용자입니다.");
+    } else {
+      console.warn("알 수 없는 응답 상태:", checkRes.status);
+      setErrorMessage("아이디 확인 중 오류가 발생했습니다.");
     }
-  };
+  } catch (error) {
+    console.error("요청 실패:", error);
+    setErrorMessage("네트워크 오류가 발생했습니다.");
+  }
+};
+
 
   return (
     <div
