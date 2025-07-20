@@ -1,10 +1,9 @@
 import React from "react";
 import CalendarWrapper from "./CalendarWrapper";
-import Logo from "./Logo";  // Logo 컴포넌트 import
+import Logo from "./Logo"; // Logo 컴포넌트 import
 import { useNavigate } from "react-router";
 import { useEffect } from "react";
-
-
+import Sidebar from "../sidebar/Sidebar";
 
 export default function CalendarPage({ userId }) {
   const navigate = useNavigate();
@@ -17,7 +16,7 @@ export default function CalendarPage({ userId }) {
   function onLogout(){
     localStorage.removeItem("token");
     localStorage.removeItem("nickname");
-    navigate("landing")
+    navigate("landing");
   }
   return (
     <div className="relative w-full max-w-[1440px] h-[900x] mx-auto bg-transparent">
@@ -28,7 +27,9 @@ export default function CalendarPage({ userId }) {
 
         {/* 닉네임 + 로그아웃 버튼 영역 */}
         <div className="ml-216 flex items-center space-x-4">
-          <span className="font-semibold text-black whitespace-nowrap">{nickname} 님</span>
+          <span className="font-semibold text-black whitespace-nowrap">
+            {nickname} 님
+          </span>
           <button
             onClick={onLogout}
             className="w-[116px] h-[36px] bg-[#D0D0D0] text-black rounded-lg px-5 py-1 hover:bg-red-700 transition font-semibold"
@@ -38,17 +39,19 @@ export default function CalendarPage({ userId }) {
         </div>
       </header>
 
-      {/* 그룹 패널 */}
-     
+      {/* 사이드바 */}
+      <aside>
+        <Sidebar />
+      </aside>
 
       {/* 캘린더 패널 */}
       <main
-         className="
+        className="
          absolute left-[420px] top-[100px]
          w-[830px] h-[800px]
          bg-white rounded-xl flex flex-col
         "
->
+      >
         <CalendarWrapper userId={userId} />
       </main>
     </div>
