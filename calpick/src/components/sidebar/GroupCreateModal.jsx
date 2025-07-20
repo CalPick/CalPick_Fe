@@ -1,12 +1,13 @@
 import React, { useState } from "react";
+import closeBtn from "../../assets/closebtn.svg";
 
 const friendList = [
-  { id: 1, name: "이수현" },
-  { id: 2, name: "김건우" },
-  { id: 3, name: "천서현" },
-  { id: 4, name: "김인규" },
-  { id: 5, name: "김아연" },
-  { id: 6, name: "조현준" },
+  { id: 1, name: "이수현", isFriend: true },
+  { id: 2, name: "김건우", isFriend: true },
+  { id: 3, name: "천서현", isFriend: true },
+  { id: 4, name: "김인규", isFriend: true },
+  { id: 5, name: "김아연", isFriend: true },
+  { id: 6, name: "조현준", isFriend: false }, // 친구가 아님
 ];
 
 export default function GroupCreateModal({ onClose }) {
@@ -45,33 +46,38 @@ export default function GroupCreateModal({ onClose }) {
         });
 
         if (!res.ok) {
-          const errorText = await res.text();
-          console.error("응답 오류:", errorText);
-          alert("그룹 생성 실패: " + errorText);
-          return;
-        }
+      const errorText = await res.text();
 
-        const data = await res.json();
+      if (res.status === 403) {
+        alert("로그인이 필요합니다. 다시 로그인해주세요.");
+      } else if (res.status === 401 || errorText.includes("AccessDenied")) {
+        alert("친구가 아닌 사용자는 그룹에 초대할 수 없습니다.");
+      } else {
+        alert("그룹 생성 실패: " + errorText);
+      }
 
-      alert("그룹 생성 완료!");
-      onGroupCreated?.(); // 사이드바 그룹 목록 새로고침 등
-      onClose(); // 모달 닫기
-    } catch (error) {
-      console.error("그룹 생성 오류:", error);
-      alert("서버 오류가 발생했습니다.");
+      console.error("응답 오류:", res.status, errorText);
+      return;
     }
-  };
 
+    alert("그룹 생성 완료!");
+    onGroupCreated?.();
+    onClose();
+  } catch (error) {
+    console.error("서버 오류:", error);
+    alert("서버 오류가 발생했습니다.");
+  }
+};
   return (
     <div
-      className="absolute top-[190px] left-[410px] z-50"
+      className="absolute top-[150px] left-[410px] z-50"
       onClick={(e) => e.stopPropagation()}
     >
       <div className="bg-white flex flex-col gap-[20px] px-[35px] py-[40px] w-[268px] shadow-sm border border-[#DDDDDD]">
         <div className="flex justify-between items-center">
           <h2 className="text-[20px] font-[600]">그룹 생성</h2>
-          <button onClick={onClose} className="text-[20px]">
-            ×
+          <button onClick={onClose}>
+            <img src={closeBtn} alt="닫기" className="w-[32px] h-[32px]" />
           </button>
         </div>
 
