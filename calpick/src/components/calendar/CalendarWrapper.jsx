@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import CalendarHeader from "./CalendarHeader";
 import CalendarGrid from "./CalendarGrid";
@@ -6,7 +7,8 @@ import ScheduleFormPanel from "../common/ScheduleFormPanel";
 import ScheduleViewPanel from "../common/ScheduleViewPanel";
 import axios from "axios";
 
-export default function CalendarWrapper() {
+// This component now receives the userId to display from its parent (CalendarPage)
+export default function CalendarWrapper({ userId }) {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
@@ -17,18 +19,11 @@ export default function CalendarWrapper() {
   const [anchorRef, setAnchorRef] = useState(null);
   const [scheduleToEdit, setScheduleToEdit] = useState(null);
 
-  function getUserIdFromToken(token) {
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      return payload.sub;
-    } catch {
-      return null;
-    }
-  }
+  // Token is still needed for API calls
   const token = localStorage.getItem("token");
-  const userId = token ? getUserIdFromToken(token) : null;
 
   const fetchSchedules = () => {
+    // It now uses the userId passed in via props.
     if (!token || !userId) {
       setSchedules([]);
       return;
@@ -37,15 +32,24 @@ export default function CalendarWrapper() {
       .get(
         `${import.meta.env.VITE_API_URL}/api/schedules/monthly`,
         {
+          // Use the userId from props for the request
           params: { userId, year, month: month + 1 },
           headers: { Authorization: `Bearer ${token}` }
         }
       )
       .then(res => setSchedules(Array.isArray(res.data) ? res.data : []))
-      .catch(() => setSchedules([]));
+      .catch((err) => {
+        console.error(`Failed to fetch schedules for userId: ${userId}`, err);
+        setSchedules([]); // Clear schedules on error
+      });
   };
 
-  useEffect(fetchSchedules, [year, month, token]);
+  // The dependency array now includes userId.
+  // This ensures that when the userId prop changes, schedules are re-fetched.
+  useEffect(fetchSchedules, [year, month, userId, token]);
+
+  // --- All other handlers and logic remain the same ---
+  // (handleCellClick, handlePanelClose, handleEditClick, etc.)
 
   const handleCellClick = (date, cellRef, hasSchedule = false) => {
     setSelectedDate(date);
@@ -72,26 +76,18 @@ export default function CalendarWrapper() {
       alert("인증 정보가 없거나 수정할 일정이 선택되지 않았습니다.");
       return;
     }
-
     try {
       const response = await axios.put(
         `${import.meta.env.VITE_API_URL}/api/schedules/${scheduleToEdit.id}`,
         updatedData,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      const updatedSchedule = Array.isArray(response.data) ? response.data[0] : response.data; 
-
+      const updatedSchedule = Array.isArray(response.data) ? response.data[0] : response.data;
       setSchedules(schedules.map(s => s.id === updatedSchedule.id ? updatedSchedule : s));
-      
       handlePanelClose();
-
     } catch (error) {
       console.error("일정 수정 실패:", error);
-      const errorMessage = error.response?.data?.error || "일정 수정 중 오류가 발생했습니다.";
-      alert(errorMessage);
+      alert(error.response?.data?.error || "일정 수정 중 오류가 발생했습니다.");
     }
   };
 
@@ -100,41 +96,27 @@ export default function CalendarWrapper() {
       alert("인증 정보가 없거나 삭제할 일정이 선택되지 않았습니다.");
       return;
     }
-
     try {
       await axios.delete(
         `${import.meta.env.VITE_API_URL}/api/schedules/${scheduleId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-
       setSchedules(schedules.filter((s) => s.id !== scheduleId));
       handlePanelClose();
     } catch (error) {
       console.error("일정 삭제 실패:", error);
-      const errorMessage =
-        error.response?.data?.error || "일정 삭제 중 오류가 발생했습니다.";
-      alert(errorMessage);
+      alert(error.response?.data?.error || "일정 삭제 중 오류가 발생했습니다.");
     }
   };
 
   const handlePrevMonth = () => {
-    if (month === 0) {
-      setYear(year - 1);
-      setMonth(11);
-    } else {
-      setMonth(month - 1);
-    }
+    setMonth(m => m === 0 ? 11 : m - 1);
+    setYear(y => month === 0 ? y - 1 : y);
   };
 
   const handleNextMonth = () => {
-    if (month === 11) {
-      setYear(year + 1);
-      setMonth(0);
-    } else {
-      setMonth(month + 1);
-    }
+    setMonth(m => m === 11 ? 0 : m + 1);
+    setYear(y => month === 11 ? y + 1 : y);
   };
 
   const getDates = (y, m) => {
@@ -146,16 +128,13 @@ export default function CalendarWrapper() {
     }
     return arr;
   };
+
   const dates = getDates(year, month);
 
   const cellClickHandler = (date, ref) => {
     const hasSchedule = schedules.some(sch => {
       const dt = new Date(sch.startTime);
-      return (
-        dt.getFullYear() === date.getFullYear() &&
-        dt.getMonth() === date.getMonth() &&
-        dt.getDate() === date.getDate()
-      );
+      return dt.getFullYear() === date.getFullYear() && dt.getMonth() === date.getMonth() && dt.getDate() === date.getDate();
     });
     handleCellClick(date, ref, hasSchedule);
   };
@@ -163,12 +142,7 @@ export default function CalendarWrapper() {
   return (
     <>
       <div className="w-full h-full flex flex-col">
-        <CalendarHeader
-          year={year}
-          month={month}
-          onPrev={handlePrevMonth}
-          onNext={handleNextMonth}
-        />
+        <CalendarHeader year={year} month={month} onPrev={handlePrevMonth} onNext={handleNextMonth} />
         <WeekdayRow />
         <div className="flex-1">
           <CalendarGrid
