@@ -1,4 +1,6 @@
-// CalendarWrapper.jsx
+/*
+CalendarWrapper.jsx
+*/
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import CalendarHeader from "./CalendarHeader";
@@ -60,41 +62,21 @@ export default function CalendarWrapper({ userId, isReadOnly }) {
     setPanelType("edit");
   };
 
+  // These functions are now primarily for local state management
+  // as ScheduleFormPanel handles the API calls directly. fetchSchedules will refresh the data.
   const handleUpdateSchedule = async updatedData => {
-    if (!token || !scheduleToEdit?.id) return alert("인증 정보가 없거나 수정 대상이 없습니다.");
-    try {
-      const res = await axios.put(
-        `${import.meta.env.VITE_API_URL}/api/schedules/${scheduleToEdit.id}`,
-        updatedData,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const updated = Array.isArray(res.data) ? res.data[0] : res.data;
-      setSchedules(schedules.map(s => (s.id === updated.id ? updated : s)));
-      handlePanelClose();
-    } catch (err) {
-      console.error("일정 수정 실패", err);
-      alert(err.response?.data?.error || "일정 수정 오류");
-    }
+    console.log("handleUpdateSchedule called in CalendarWrapper (might be redundant for API calls)", updatedData);
   };
 
   const handleDeleteSchedule = async id => {
-    if (!token || !id) return alert("인증 정보가 없거나 삭제 대상이 없습니다.");
-    try {
-      await axios.delete(`${import.meta.env.VITE_API_URL}/api/schedules/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setSchedules(schedules.filter(s => s.id !== id));
-      handlePanelClose();
-    } catch (err) {
-      console.error("일정 삭제 실패", err);
-      alert(err.response?.data?.error || "일정 삭제 오류");
-    }
+    console.log("handleDeleteSchedule called in CalendarWrapper (might be redundant for API calls)", id);
   };
 
   const handlePrevMonth = () => {
     setMonth(m => (m === 0 ? 11 : m - 1));
     setYear(y => (month === 0 ? y - 1 : y));
   };
+
   const handleNextMonth = () => {
     setMonth(m => (m === 11 ? 0 : m + 1));
     setYear(y => (month === 11 ? y + 1 : y));
@@ -109,6 +91,7 @@ export default function CalendarWrapper({ userId, isReadOnly }) {
     }
     return arr;
   };
+
   const dates = getDates(year, month);
 
   const cellClickHandler = (date, ref) => {
@@ -152,10 +135,9 @@ export default function CalendarWrapper({ userId, isReadOnly }) {
           anchorRef={anchorRef}
           date={selectedDate}
           onClose={handlePanelClose}
-          onAddSchedule={fetchSchedules}
-          onEditSchedule={handleUpdateSchedule}
-          onDeleteSchedule={handleDeleteSchedule}
+          onAddSchedule={fetchSchedules} // This will refresh the calendar after any add/edit/delete from form
           schedule={panelType === "edit" ? scheduleToEdit : null}
+          schedules={schedules} // Pass all schedules to ScheduleFormPanel
         />
       )}
     </>

@@ -1,8 +1,11 @@
+/*
+getRepeatingDates.js
+*/
 export function getRepeatingDates({
-  startDate,      // Date 객체
-  endDate,        // Date 객체
+  startDate,      // Date object
+  endDate,        // Date object
   repeatType,     // "weekly" | "biweekly" | "monthly"
-  repeatDays,     // [0,3,4]  // 일~토 (monthly에서는 사용 X)
+  repeatDays,     // [0,3,4]  // Sun~Sat (not used in monthly)
 }) {
   const result = [];
   function copyDate(date) {
@@ -12,15 +15,23 @@ export function getRepeatingDates({
   if (repeatType === "weekly" || repeatType === "biweekly") {
     const weekGap = repeatType === "weekly" ? 1 : 2;
     let weekStart = copyDate(startDate);
-    weekStart.setHours(0, 0, 0, 0); // 시간 초기화
+    weekStart.setHours(0, 0, 0, 0); // Normalize time
     weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+
     const days = repeatDays && repeatDays.length > 0 ? repeatDays : [startDate.getDay()];
+
     while (weekStart <= endDate) {
       for (let d of days) {
         let dt = copyDate(weekStart);
         dt.setDate(dt.getDate() + d);
-        if (dt >= startDate && dt <= endDate) {
-          if (!result.find(x => x.getTime() === dt.getTime())) result.push(copyDate(dt));
+        
+        const normalizedStartDate = new Date(startDate.getTime());
+        normalizedStartDate.setHours(0,0,0,0);
+
+        if (dt >= normalizedStartDate && dt <= endDate) {
+          if (!result.find(x => x.getTime() === dt.getTime())) {
+            result.push(copyDate(dt));
+          }
         }
       }
       weekStart.setDate(weekStart.getDate() + weekGap * 7);
@@ -36,18 +47,19 @@ export function getRepeatingDates({
 
       if (targetDay <= lastDay) {
         const candidate = new Date(y, m, targetDay);
-        candidate.setHours(0,0,0,0); // 시간 초기화
+        candidate.setHours(0,0,0,0); // Normalize time
 
-        const start = new Date(startDate.getTime());
-        start.setHours(0,0,0,0);
+        const normalizedStartDate = new Date(startDate.getTime());
+        normalizedStartDate.setHours(0,0,0,0);
 
-        if (candidate >= start && candidate <= endDate) {
+        if (candidate >= normalizedStartDate && candidate <= endDate) {
           result.push(candidate);
         }
       }
       monthCursor.setMonth(monthCursor.getMonth() + 1);
     }
   }
+
   result.sort((a, b) => a - b);
   return result;
 }

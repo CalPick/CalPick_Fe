@@ -1,3 +1,6 @@
+/*
+ScheduleFormPanel.jsx
+*/
 import React, { useRef, useEffect, useState } from "react";
 import calendaricon from '../../assets/calendaricon.svg';
 import clockicon from '../../assets/timeicon.svg';
@@ -37,7 +40,7 @@ function clampEndTime(val) {
 
 function handleTimeInput(setter, clamp) {
   return (e) => {
-    let val = e.target.value.replace(/[^\d]/g, "").slice(0, 4);
+    let val = e.target.value.replace(/[^0-9]/g, "").slice(0, 4);
     if (val.length > 2) val = val.slice(0, 2) + ":" + val.slice(2);
     if (val.length === 5) val = clamp(val);
     setter(val);
@@ -46,11 +49,10 @@ function handleTimeInput(setter, clamp) {
 
 export default function ScheduleFormPanel({
   open, anchorRef, date, setDate, onClose, onAddSchedule,
-  schedule, onEditSchedule, onDeleteSchedule
+  schedule, isGroupSchedule = false, schedules // Added schedules prop
 }) {
   const panelRef = useRef(null);
   const isEditMode = !!schedule;
-
   const getShortDateStr = (d) =>
     `${pad2(d.getFullYear() % 100)}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   const dateStr = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
@@ -114,23 +116,19 @@ export default function ScheduleFormPanel({
     if (isEditMode && schedule) {
       setTitle(schedule.title || "");
       setColor(schedule.color || COLORS[0].value);
-      setRepeat(schedule.isRepeating || false);
+      setRepeat(schedule.repeating || false); // Use schedule.repeating to pre-check
       setDeleteConfirm(false);
-      
+
       if (schedule.startTime && schedule.endTime) {
         const start = new Date(schedule.startTime);
         const end = new Date(schedule.endTime);
-        
         let startTimeStr = `${pad(start.getHours())}:${pad(start.getMinutes())}`;
         let endTimeStr = `${pad(end.getHours())}:${pad(end.getMinutes())}`;
-
         if (end.getHours() === 23 && end.getMinutes() === 59) {
           endTimeStr = "23:59";
         }
-        
         const isAllDay = startTimeStr === "06:00" && endTimeStr === "23:59";
         setAllDay(isAllDay);
-
         if (isAllDay) {
           setStartTime("");
           setEndTime("");
@@ -147,7 +145,6 @@ export default function ScheduleFormPanel({
       resetForm();
     }
   }, [isEditMode, schedule, date]);
-
 
   const handleClose = () => {
     setShow(false);
@@ -171,7 +168,8 @@ export default function ScheduleFormPanel({
     if (repeat) {
       setRepeatMonths((v) => v || "1");
       setShowMonthInput(false);
-    } else {
+    }
+    else {
       setRepeatMonths("");
       setCalcEndDate("");
       setShowMonthInput(true);
@@ -210,7 +208,6 @@ export default function ScheduleFormPanel({
     }, 50);
   };
 
-  // Modified to cap at 23:59
   useEffect(() => {
     if (
       /^\d{2}:\d{2}$/.test(startTime) &&
@@ -225,7 +222,8 @@ export default function ScheduleFormPanel({
         }
         if (h >= 24) {
           setEndTime("23:59");
-        } else {
+        }
+        else {
           const newEnd = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
           setEndTime(newEnd);
         }
@@ -234,164 +232,197 @@ export default function ScheduleFormPanel({
   }, [startTime, endTime]);
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (isEditMode && deleteConfirm) {
-    onDeleteSchedule(schedule.id);
-    return;
-  }
+    const token = localStorage.getItem("token");
+    const baseUrl = import.meta.env.VITE_API_URL;
 
-  const start = allDay ? "06:00" : startTime;
-  const end = allDay ? "23:59" : endTime;
+    // --- DELETION LOGIC ---
+    if (isEditMode && deleteConfirm) {
+        try {
+            if (schedule.repeatingId) {
+                // Find all schedules with the same repeatingId in the current month's schedules
+                const schedulesToDelete = schedules.filter(s => s.repeatingId === schedule.repeatingId);
+                for (const sch of schedulesToDelete) {
+                    const res = await fetch(`${baseUrl}/api/schedules/${sch.id}`, {
+                        method: "DELETE",
+                        headers: { Authorization: `Bearer ${token}` },
+                    });
+                    if (!res.ok) throw new Error(`반복 일정 삭제 실패: ${sch.id}`);
+                }
+            } else {
+                // For a single schedule, delete it directly.
+                const res = await fetch(`${baseUrl}/api/schedules/${schedule.id}`, {
+                    method: "DELETE",
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (!res.ok) throw new Error("단일 일정 삭제를 실패했습니다.");
+            }
+            onAddSchedule?.(); // Refresh the calendar
+            onClose();
+        } catch (err) {
+            console.error("삭제 오류:", err);
+            alert(err.message);
+        }
+        return;
+    }
 
-  function toISO(dateStr, timeStr) {
-    return `${dateStr}T${timeStr.length === 5 ? timeStr : "00:00"}:00`;
-  }
+    // --- DATA PREPARATION ---
+    const start = allDay ? "06:00" : startTime;
+    const end = allDay ? "23:59" : endTime;
+    const dateISO = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    const toISO = (dateStr, timeStr) => `${dateStr}T${timeStr.length === 5 ? timeStr : "00:00"}:00`;
 
-  const dateISO = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-  const token = localStorage.getItem("token");
-  const baseUrl = import.meta.env.VITE_API_URL;
+    const buildScheduleObj = (d, repeatingId = null, groupId = null) => {
+        const base = {
+            title,
+            color,
+            repeating: repeat,
+            startTime: toISO(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, start),
+            endTime: toISO(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, end),
+        };
+        if (repeatingId) base.repeatingId = repeatingId;
+        if (isGroupSchedule && groupId) base.groupId = groupId;
+        return base;
+    };
 
-  if (isEditMode) {
-    try {
-      if (repeat) {
-        const groupId = schedule.groupId || crypto.randomUUID(); // 기존 groupId 또는 새로 생성
-        const deleteUrl = `${baseUrl}/api/schedules/group/${groupId}`;
+    try {
+        // --- EDIT LOGIC ---
+        if (isEditMode) {
+            // Get existing schedules for the repeating series (if applicable)
+            const existingRepeatingSchedules = schedule.repeatingId 
+                ? schedules.filter(s => s.repeatingId === schedule.repeatingId)
+                : [];
 
-        // 기존 반복 일정 삭제
-        await fetch(deleteUrl, {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        });
+            // Calculate new repeating dates
+            const newRepeatingDates = repeat 
+                ? getRepeatingDates({
+                    startDate: date,
+                    endDate: (() => {
+                        const d = new Date(date);
+                        d.setMonth(d.getMonth() + Number(repeatMonths));
+                        d.setHours(23, 59, 59, 999);
+                        return d;
+                    })(),
+                    repeatType,
+                    ...(repeatType !== "monthly" ? { repeatDays } : {}),
+                })
+                : [];
 
-        // 반복일 범위 설정
-        const endDate = new Date(date);
-        endDate.setMonth(endDate.getMonth() + Number(repeatMonths));
-        endDate.setHours(23, 59, 59, 999);
+            // Convert newRepeatingDates to a set of date strings for easy lookup
+            const newRepeatingDateStrings = new Set(newRepeatingDates.map(d => d.toDateString()));
 
-        const repeatingDates = getRepeatingDates({
-          startDate: date,
-          endDate,
-          repeatType,
-          ...(repeatType !== "monthly" ? { repeatDays } : {}),
-        });
+            // 1. Delete schedules that are no longer part of the repeating series
+            for (const existingSch of existingRepeatingSchedules) {
+                const existingSchDate = new Date(existingSch.startTime).toDateString();
+                if (!newRepeatingDateStrings.has(existingSchDate)) {
+                    await fetch(`${baseUrl}/api/schedules/${existingSch.id}`, {
+                        method: "DELETE",
+                        headers: { Authorization: `Bearer ${token}` },
+                    });
+                }
+            }
 
-        const schedulesToCreate = repeatingDates.map((d) => ({
-          title,
-          color,
-          isRepeating: true,
-          groupId,
-          startTime: toISO(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, start),
-          endTime: toISO(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, end),
-        }));
+            // 2. Update existing schedules and create new ones
+            if (repeat) {
+                const repeatingId = schedule.repeatingId || crypto.randomUUID();
+                const groupId = schedule.groupId || (isGroupSchedule ? crypto.randomUUID() : null);
 
-        const responses = await Promise.all(
-          schedulesToCreate.map((s) =>
-            fetch(`${baseUrl}/api/schedules`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify(s),
-            })
-          )
-        );
+                for (const d of newRepeatingDates) {
+                    const existingScheduleForDate = existingRepeatingSchedules.find(s => 
+                        new Date(s.startTime).toDateString() === d.toDateString()
+                    );
 
-        const allOk = responses.every((r) => r.ok);
-        if (allOk) {
-          onAddSchedule?.();
-          onClose?.();
-        } else {
-          alert("일정 일부 생성 실패");
-        }
-      } else {
-        // 단일 일정 수정
-        const updatedData = {
-          id: schedule.id,
-          title,
-          startTime: toISO(dateISO, start),
-          endTime: toISO(dateISO, end),
-          isRepeating: false,
-          color,
-        };
-        onEditSchedule(updatedData);
-      }
-    } catch (err) {
-      console.error("일정 수정 실패", err);
-      alert("일정 수정 중 오류 발생");
-    }
+                    const scheduleData = buildScheduleObj(d, repeatingId, groupId);
 
-    return;
-  }
+                    if (existingScheduleForDate) {
+                        // Update existing repeating schedule
+                        await fetch(`${baseUrl}/api/schedules/${existingScheduleForDate.id}`, {
+                            method: "PUT",
+                            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                            body: JSON.stringify({
+                                ...scheduleData,
+                                id: existingScheduleForDate.id // Ensure ID is included for PUT
+                            }),
+                        });
+                    } else {
+                        // Create new repeating schedule for this date
+                        await fetch(`${baseUrl}/api/schedules`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                            body: JSON.stringify([scheduleData]),
+                        });
+                    }
+                }
 
-  // 신규 생성 (Add)
-  let schedulesToSave = [];
-  if (repeat) {
-    let endDate = new Date(date);
-    endDate.setMonth(endDate.getMonth() + Number(repeatMonths));
-    endDate.setHours(23, 59, 59, 999);
+            } else {
+                // If "repeat" is not checked, it's a single event.
+                // If it was a repeating series that's now becoming a single event, delete old series and create new single.
+                if (schedule.repeatingId) {
+                    // All existing repeating schedules for this series have already been deleted above.
+                    // Now create the new single schedule.
+                    const newSingleSchedule = buildScheduleObj(date, null, null);
+                    await fetch(`${baseUrl}/api/schedules`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                        body: JSON.stringify([newSingleSchedule]),
+                    });
+                } else {
+                    // If it was a single event before, update it in place.
+                    const updated = {
+                        id: schedule.id,
+                        title,
+                        repeating: false,
+                        color,
+                        startTime: toISO(dateISO, start),
+                        endTime: toISO(dateISO, end),
+                        repeatingId: null // Ensure repeatingId is null for single events
+                    };
+                    const res = await fetch(`${baseUrl}/api/schedules/${schedule.id}`, {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                        body: JSON.stringify(updated), // Send as array for PUT
+                    });
+                    if (!res.ok) throw new Error("단일 일정 수정 실패");
+                }
+            }
+        } else {
+            // --- ADD LOGIC ---
+            let schedulesToSave = [];
+            if (repeat) {
+                const endDate = new Date(date);
+                endDate.setMonth(endDate.getMonth() + Number(repeatMonths));
+                endDate.setHours(23, 59, 59, 999);
+                const repeatingId = crypto.randomUUID();
+                const groupId = isGroupSchedule ? crypto.randomUUID() : null;
+                const repeatDates = getRepeatingDates({
+                    startDate: date,
+                    endDate,
+                    repeatType,
+                    ...(repeatType !== "monthly" ? { repeatDays } : {}),
+                });
+                schedulesToSave = repeatDates.map(d => buildScheduleObj(d, repeatingId, groupId));
+            } else {
+                schedulesToSave.push(buildScheduleObj(date));
+            }
+            const res = await fetch(`${baseUrl}/api/schedules`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify(schedulesToSave),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.message || "등록 실패");
+            }
+        }
 
-    const repeatDates = getRepeatingDates({
-      startDate: date,
-      endDate,
-      repeatType,
-      ...(repeatType !== "monthly" ? { repeatDays } : {}),
-    });
-
-    const groupId = crypto.randomUUID(); // 새 groupId 생성
-
-    schedulesToSave = repeatDates.map((d) => ({
-      title,
-      startTime: toISO(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, start),
-      endTime: toISO(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, end),
-      isRepeating: true,
-      color,
-      groupId,
-    }));
-  } else {
-    schedulesToSave = [{
-      title,
-      startTime: toISO(dateISO, start),
-      endTime: toISO(dateISO, end),
-      isRepeating: false,
-      color,
-    }];
-  }
-
-  try {
-    const promises = schedulesToSave.map(scheduleToSave =>
-      fetch(`${baseUrl}/api/schedules`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(scheduleToSave),
-      })
-    );
-
-    const responses = await Promise.all(promises);
-
-    const allOk = responses.every(res => res.ok);
-
-    if (allOk) {
-      onAddSchedule?.();
-      onClose();
-    } else {
-      const failedResponse = responses.find(res => !res.ok);
-      let errMsg = `일정 등록 실패 (상태: ${failedResponse.status})`;
-      try {
-       const err = await failedResponse.json();
-       errMsg = err.message || errMsg;
-      } catch { }
-      alert(errMsg);
-    }
-  } catch (error) {
-    alert("네트워크 오류로 인해 일정 등록/수정에 실패했습니다.");
-    console.error(error);
-  }
-};
+        onAddSchedule?.();
+        onClose();
+    } catch (err) {
+        console.error("등록/수정 실패:", err);
+        alert("일정 처리 중 오류가 발생했습니다: " + err.message);
+    }
+  };
 
 
   const canSubmit =
@@ -573,7 +604,7 @@ export default function ScheduleFormPanel({
               </div>
               {repeat && (
                 <>
-                  <div className="flex items-center gap-2 mt-1"> {/* flex와 items-center 추가 */}
+                  <div className="flex items-center gap-2 mt-1">
                     <img src={recycleicon} alt="반복" className="w-6 h-6 mr-1" draggable={false} />
                     <select
                       className="appearance-none w-30 h-[38px] border border-[#E8E8E8] rounded-[9px] px-4 py-1 focus:outline-none focus:boarder-1 focus:border-black"
@@ -591,7 +622,7 @@ export default function ScheduleFormPanel({
                         <button
                           type="button"
                           key={d}
-                          className={`w-10 h-10 rounded-full flex items-center justify-center text-[16px]
+                          className={`w-10 h-10 rounded-full flex items-center justify-center text-[16px] 
                             ${repeatDays.includes(idx) ? 'bg-black text-white' : 'bg-white text-black'}`}
                           onClick={() => toggleDay(idx)}
                         >
@@ -604,14 +635,12 @@ export default function ScheduleFormPanel({
               )}
             </div>
           </div>
-          
           <div className="py-12">
             {isEditMode && deleteConfirm && (
               <div className="text-[#B3261E] text-center font-semibold text-sm my-1">
                 일정을 삭제하면 되돌릴수없습니다.
               </div>
             )}
-
             <button
               type="submit"
               className={`w-full py-2 rounded-md transition font-bold ${

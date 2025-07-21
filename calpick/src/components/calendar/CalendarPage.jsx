@@ -1,4 +1,6 @@
-// CalendarPage.jsx
+/*
+CalendarPage.jsx
+*/
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import CalendarWrapper from "./CalendarWrapper";
@@ -19,6 +21,7 @@ export default function CalendarPage() {
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
   const authInfo = getAuthInfoFromToken(token);
+
   const CURRENT_USER = { id: authInfo?.id, name: authInfo?.nickname };
   const [viewedUser, setViewedUser] = useState(CURRENT_USER);
 
@@ -62,7 +65,6 @@ export default function CalendarPage() {
           </button>
         </div>
       </header>
-
       <aside>
         <Sidebar
           viewedUser={viewedUser}
@@ -71,7 +73,6 @@ export default function CalendarPage() {
           onGoBack={handleGoBackToMyCalendar}
         />
       </aside>
-
       <main className="absolute left-[420px] top-[100px] w-[830px] h-[800px] bg-white rounded-xl flex flex-col">
         <CalendarWrapper
           key={viewedUser.id}
