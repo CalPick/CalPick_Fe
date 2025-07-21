@@ -1,34 +1,58 @@
-import React from "react";
+// CalendarPage.jsx
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import CalendarWrapper from "./CalendarWrapper";
-import Logo from "./Logo"; // Logo 컴포넌트 import
-import { useNavigate } from "react-router";
-import { useEffect } from "react";
+import Logo from "./Logo";
 import Sidebar from "../sidebar/Sidebar";
 
-export default function CalendarPage({ userId }) {
+function getAuthInfoFromToken(token) {
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return { id: payload.sub, nickname: payload.nickname || "User" };
+  } catch {
+    return null;
+  }
+}
+
+export default function CalendarPage() {
   const navigate = useNavigate();
-  const nickname = localStorage.getItem("nickname")
-  //  useEffect(() => {
-  // if (!localStorage.getItem("token")) {
-  //    navigate("/landing", { replace: true });
-  // }
-  //  }, [navigate]);
-  function onLogout(){
+  const token = localStorage.getItem("token");
+  const authInfo = getAuthInfoFromToken(token);
+  const CURRENT_USER = { id: authInfo?.id, name: authInfo?.nickname };
+  const [viewedUser, setViewedUser] = useState(CURRENT_USER);
+
+  useEffect(() => {
+    if (!token) {
+      navigate("/landing", { replace: true });
+    }
+  }, [navigate, token]);
+
+  function onLogout() {
     localStorage.removeItem("token");
     localStorage.removeItem("nickname");
-    navigate("landing");
+    navigate("/landing");
   }
-  return (
-    <div className="relative w-full max-w-[1440px] h-[900x] mx-auto bg-transparent">
-      {/* 상단 헤더 */}
-      <header className="absolute top-5 left-33 right-3 flex items-center">
-        {/* 로고 컴포넌트 사용 */}
-        <Logo />
 
-        {/* 닉네임 + 로그아웃 버튼 영역 */}
+  const handleCalendarClick = (friend) => {
+    setViewedUser(friend);
+  };
+
+  const handleGoBackToMyCalendar = () => {
+    setViewedUser(CURRENT_USER);
+  };
+
+  if (!authInfo) return <div>Loading...</div>;
+
+  const isReadOnly = viewedUser.id !== CURRENT_USER.id;
+
+  return (
+    <div className="relative w-full max-w-[1440px] h-[900px] mx-auto bg-transparent">
+      <header className="absolute top-5 left-33 right-3 flex items-center">
+        <Logo />
         <div className="ml-216 flex items-center space-x-4">
           <span className="font-semibold text-black whitespace-nowrap">
-            {nickname} 님
+            {authInfo.nickname} 님
           </span>
           <button
             onClick={onLogout}
@@ -39,20 +63,21 @@ export default function CalendarPage({ userId }) {
         </div>
       </header>
 
-      {/* 사이드바 */}
       <aside>
-        <Sidebar />
+        <Sidebar
+          viewedUser={viewedUser}
+          currentUserId={CURRENT_USER.id}
+          onCalendarClick={handleCalendarClick}
+          onGoBack={handleGoBackToMyCalendar}
+        />
       </aside>
 
-      {/* 캘린더 패널 */}
-      <main
-        className="
-         absolute left-[420px] top-[100px]
-         w-[830px] h-[800px]
-         bg-white rounded-xl flex flex-col
-        "
-      >
-        <CalendarWrapper userId={userId} />
+      <main className="absolute left-[420px] top-[100px] w-[830px] h-[800px] bg-white rounded-xl flex flex-col">
+        <CalendarWrapper
+          key={viewedUser.id}
+          userId={viewedUser.id}
+          isReadOnly={isReadOnly}
+        />
       </main>
     </div>
   );

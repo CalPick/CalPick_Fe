@@ -234,101 +234,165 @@ export default function ScheduleFormPanel({
   }, [startTime, endTime]);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (isEditMode && deleteConfirm) {
-      onDeleteSchedule(schedule.id);
-      return;
-    }
+  if (isEditMode && deleteConfirm) {
+    onDeleteSchedule(schedule.id);
+    return;
+  }
 
-    const start = allDay ? "06:00" : startTime;
-    const end = allDay ? "23:59" : endTime; // Modified to 23:59
-    
-    function toISO(dateStr, timeStr) {
-      return `${dateStr}T${timeStr.length === 5 ? timeStr : "00:00"}:00`;
-    }
+  const start = allDay ? "06:00" : startTime;
+  const end = allDay ? "23:59" : endTime;
 
-    if (isEditMode) {
-      const dateISO = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-      const updatedData = {
-        id: schedule.id,
-        title,
-        startTime: toISO(dateISO, start),
-        endTime: toISO(dateISO, end),
-        isRepeating: repeat,
-        color,
-      };
-      onEditSchedule(updatedData);
+  function toISO(dateStr, timeStr) {
+    return `${dateStr}T${timeStr.length === 5 ? timeStr : "00:00"}:00`;
+  }
 
-    } else {
-      const dateISO = dateStr;
-      let schedulesToSave = [];
-      if (repeat) {
-        let endDate = new Date(date);
-        endDate.setMonth(endDate.getMonth() + Number(repeatMonths));
-        endDate.setHours(23, 59, 59, 999);
+  const dateISO = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  const token = localStorage.getItem("token");
+  const baseUrl = import.meta.env.VITE_API_URL;
 
-        const repeatDates = getRepeatingDates({
-          startDate: date,
-          endDate,
-          repeatType,
-          ...(repeatType !== "monthly" ? { repeatDays } : {}),
-        });
+  if (isEditMode) {
+    try {
+      if (repeat) {
+        const groupId = schedule.groupId || crypto.randomUUID(); // 기존 groupId 또는 새로 생성
+        const deleteUrl = `${baseUrl}/api/schedules/group/${groupId}`;
 
-        schedulesToSave = repeatDates.map(d => ({
-          title,
-          startTime: toISO(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, start),
-          endTime: toISO(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, end),
-          isRepeating: true,
-          color,
-        }));
-      } else {
-        schedulesToSave = [{
-          title,
-          startTime: toISO(dateISO, start),
-          endTime: toISO(dateISO, end),
-          isRepeating: false,
-          color,
-        }];
-      }
+        // 기존 반복 일정 삭제
+        await fetch(deleteUrl, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-      try {
-        const baseUrl = import.meta.env.VITE_API_URL || "";
-        const token = localStorage.getItem("token");
+        // 반복일 범위 설정
+        const endDate = new Date(date);
+        endDate.setMonth(endDate.getMonth() + Number(repeatMonths));
+        endDate.setHours(23, 59, 59, 999);
 
-        const promises = schedulesToSave.map(scheduleToSave => 
-          fetch(`${baseUrl}/api/schedules`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(scheduleToSave),
-          })
-        );
+        const repeatingDates = getRepeatingDates({
+          startDate: date,
+          endDate,
+          repeatType,
+          ...(repeatType !== "monthly" ? { repeatDays } : {}),
+        });
 
-        const responses = await Promise.all(promises);
+        const schedulesToCreate = repeatingDates.map((d) => ({
+          title,
+          color,
+          isRepeating: true,
+          groupId,
+          startTime: toISO(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, start),
+          endTime: toISO(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, end),
+        }));
 
-        const allOk = responses.every(res => res.ok);
+        const responses = await Promise.all(
+          schedulesToCreate.map((s) =>
+            fetch(`${baseUrl}/api/schedules`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify(s),
+            })
+          )
+        );
 
-        if (allOk) {
-          onAddSchedule?.();
-          onClose();
-        } else {
-          const failedResponse = responses.find(res => !res.ok);
-          let errMsg = `일정 등록 실패 (상태: ${failedResponse.status})`;
-          try {
-            const err = await failedResponse.json();
-            errMsg = err.message || errMsg;
-          } catch {}
-          alert(errMsg);
-        }
-      } catch (error) {
-        alert("네트워크 오류로 일정 등록에 실패했습니다.");
-        console.error(error);
-      }
-    }
-  };
+        const allOk = responses.every((r) => r.ok);
+        if (allOk) {
+          onAddSchedule?.();
+          onClose?.();
+        } else {
+          alert("일정 일부 생성 실패");
+        }
+      } else {
+        // 단일 일정 수정
+        const updatedData = {
+          id: schedule.id,
+          title,
+          startTime: toISO(dateISO, start),
+          endTime: toISO(dateISO, end),
+          isRepeating: false,
+          color,
+        };
+        onEditSchedule(updatedData);
+      }
+    } catch (err) {
+      console.error("일정 수정 실패", err);
+      alert("일정 수정 중 오류 발생");
+    }
+
+    return;
+  }
+
+  // 신규 생성 (Add)
+  let schedulesToSave = [];
+  if (repeat) {
+    let endDate = new Date(date);
+    endDate.setMonth(endDate.getMonth() + Number(repeatMonths));
+    endDate.setHours(23, 59, 59, 999);
+
+    const repeatDates = getRepeatingDates({
+      startDate: date,
+      endDate,
+      repeatType,
+      ...(repeatType !== "monthly" ? { repeatDays } : {}),
+    });
+
+    const groupId = crypto.randomUUID(); // 새 groupId 생성
+
+    schedulesToSave = repeatDates.map((d) => ({
+      title,
+      startTime: toISO(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, start),
+      endTime: toISO(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, end),
+      isRepeating: true,
+      color,
+      groupId,
+    }));
+  } else {
+    schedulesToSave = [{
+      title,
+      startTime: toISO(dateISO, start),
+      endTime: toISO(dateISO, end),
+      isRepeating: false,
+      color,
+    }];
+  }
+
+  try {
+    const promises = schedulesToSave.map(scheduleToSave =>
+      fetch(`${baseUrl}/api/schedules`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(scheduleToSave),
+      })
+    );
+
+    const responses = await Promise.all(promises);
+
+    const allOk = responses.every(res => res.ok);
+
+    if (allOk) {
+      onAddSchedule?.();
+      onClose();
+    } else {
+      const failedResponse = responses.find(res => !res.ok);
+      let errMsg = `일정 등록 실패 (상태: ${failedResponse.status})`;
+      try {
+       const err = await failedResponse.json();
+       errMsg = err.message || errMsg;
+      } catch { }
+      alert(errMsg);
+    }
+  } catch (error) {
+    alert("네트워크 오류로 인해 일정 등록/수정에 실패했습니다.");
+    console.error(error);
+  }
+};
+
 
   const canSubmit =
     !!title &&

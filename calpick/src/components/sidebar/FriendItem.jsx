@@ -1,3 +1,4 @@
+// FriendItem.jsx
 import React from "react";
 import calendarIcon from "../../assets/calendaricon.svg";
 
