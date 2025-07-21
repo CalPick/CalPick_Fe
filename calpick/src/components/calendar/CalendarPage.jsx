@@ -10,7 +10,7 @@ import Sidebar from "../sidebar/Sidebar";
 function getAuthInfoFromToken(token) {
   if (!token) return null;
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
+    const payload = JSON.parse(atob(token.split(".")[1]));
     return { id: payload.sub, nickname: payload.nickname || "User" };
   } catch {
     return null;
@@ -37,13 +37,13 @@ export default function CalendarPage() {
     navigate("/landing");
   }
 
-  const handleCalendarClick = (friend) => {
-    setViewedUser(friend);
-  };
+  // const handleCalendarClick = (friend) => {
+  //   setViewedUser(friend);
+  // };
 
-  const handleGoBackToMyCalendar = () => {
-    setViewedUser(CURRENT_USER);
-  };
+  // const handleGoBackToMyCalendar = () => {
+  //   setViewedUser(CURRENT_USER);
+  // };
 
   if (!authInfo) return <div>Loading...</div>;
 
@@ -67,10 +67,13 @@ export default function CalendarPage() {
       </header>
       <aside>
         <Sidebar
-          viewedUser={viewedUser}
+          viewedUser={CURRENT_USER} //viewedUser
           currentUserId={CURRENT_USER.id}
-          onCalendarClick={handleCalendarClick}
-          onGoBack={handleGoBackToMyCalendar}
+          onCalendarClick={() => {}} // 친구 캘린더 전환 막음
+          onGoBack={() => {}} // 돌아가기 버튼도 작동 X
+
+          // onCalendarClick={handleCalendarClick}
+          // onGoBack={handleGoBackToMyCalendar}
         />
       </aside>
       <main className="absolute left-[420px] top-[100px] w-[830px] h-[800px] bg-white rounded-xl flex flex-col">

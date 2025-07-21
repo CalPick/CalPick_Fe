@@ -1,4 +1,3 @@
-// Sidebar.jsx
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import GroupListPanel from "./GroupListPanel";
@@ -10,7 +9,7 @@ import InboxModal from "./GroupInboxModal";
 import FriendsInboxModal from "./FriendsInboxModal";
 import FriendInviteModal from "./FriendInviteModal";
 
-function Sidebar({ viewedUser, currentUserId, onCalendarClick, onGoBack }) {
+function Sidebar({ onCalendarClick, onGoBack, viewedUser }) {
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [isGroupInboxOpen, setIsGroupInboxOpen] = useState(false);
   const [isFriendInviteOpen, setIsFriendInviteOpen] = useState(false);
@@ -18,7 +17,8 @@ function Sidebar({ viewedUser, currentUserId, onCalendarClick, onGoBack }) {
 
   const [groupList, setGroupList] = useState([]);
   const [friendList, setFriendList] = useState([]);
-  const [pendingRequests, setPendingRequests] = useState([]);
+
+  const currentUserId = localStorage.getItem("userId");
 
   const openGroupModal = () => setIsGroupModalOpen(true);
   const closeGroupModal = () => setIsGroupModalOpen(false);
@@ -27,23 +27,7 @@ function Sidebar({ viewedUser, currentUserId, onCalendarClick, onGoBack }) {
   const openFriendInviteModal = () => setIsFriendInviteOpen(true);
   const closeFriendInviteModal = () => setIsFriendInviteOpen(false);
 
-  // 친구 요청 보내기
-  const handleFriendRequestSent = async (targetUserId) => {
-    try {
-      const token = localStorage.getItem("token");
-      await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/friends/request`,
-        { targetUserId },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setPendingRequests(prev => [...prev, { id: null, targetUserId, status: "PENDING" }]);
-      alert("친구 요청을 보냈습니다. 상대방이 수락하면 목록에 나타납니다.");
-    } catch {
-      alert("친구 요청에 실패했습니다.");
-    }
-  };
-
-  // 친구 목록 조회
+  // ✅ 친구 목록 서버에서 불러오기
   const refreshFriendList = async () => {
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -52,27 +36,13 @@ function Sidebar({ viewedUser, currentUserId, onCalendarClick, onGoBack }) {
         `${import.meta.env.VITE_API_URL}/api/friends`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      // ✅ 수신자 기준으로 필터링
       setFriendList(data.filter(f => f.status === "ACCEPTED"));
     } catch {
       console.error("친구 목록 불러오기 실패");
     }
   };
 
-  // 달력 클릭 핸들러
-  const handleFriendCalendarClick = (userId) => {
-    onCalendarClick({ id: userId, name: userId });
-  };
-
-  useEffect(() => {
-    refreshFriendList();
-  }, []);
-
-  useEffect(() => {
-    const interval = setInterval(refreshFriendList, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // 그룹 목록 조회
   const fetchGroups = async () => {
     const token = localStorage.getItem("token");
     const userId = localStorage.getItem("userId");
@@ -80,7 +50,11 @@ function Sidebar({ viewedUser, currentUserId, onCalendarClick, onGoBack }) {
     try {
       const res = await fetch(
         `${import.meta.env.VITE_API_URL}/api/groups/${userId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
       if (!res.ok) throw new Error();
       const data = await res.json();
@@ -92,9 +66,20 @@ function Sidebar({ viewedUser, currentUserId, onCalendarClick, onGoBack }) {
 
   useEffect(() => {
     fetchGroups();
+    refreshFriendList();
   }, []);
 
-  const isViewingFriendCalendar = viewedUser && viewedUser.id !== currentUserId;
+  useEffect(() => {
+    const interval = setInterval(refreshFriendList, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // const isViewingFriendCalendar =
+  //   viewedUser && viewedUser.id !== currentUserId;
+
+  const handleFriendCalendarClick = (userId, name) => {
+    onCalendarClick({ id: userId, name });
+  };
 
   return (
     <>
@@ -159,16 +144,16 @@ function Sidebar({ viewedUser, currentUserId, onCalendarClick, onGoBack }) {
                 </div>
               </div>
               <div className="mt-4 flex-1 overflow-y-auto scrollbar-hide flex flex-col gap-7">
-                {friendList.map(f => {
-                  const userId = f.requesterId === currentUserId ? f.accepterId : f.requesterId;
-                  return (
-                    <FriendItem
-                      key={f.id}
-                      friend={{ id: userId, name: userId }}
-                      onCalendarClick={handleFriendCalendarClick}
-                    />
-                  );
-                })}
+                {friendList.map((f, index) => (
+                  <FriendItem
+                    key={index}
+                    friend={{
+                      id: f.addresseeUserId,
+                      name: f.addresseeNickname,
+                    }}
+                    onCalendarClick={handleFriendCalendarClick}
+                  />
+                ))}
               </div>
             </div>
           </>
@@ -176,8 +161,15 @@ function Sidebar({ viewedUser, currentUserId, onCalendarClick, onGoBack }) {
       </aside>
 
       {isGroupInboxOpen && <InboxModal onClose={closeGroupInboxModal} />}
-      {isGroupModalOpen && <GroupCreateModal onClose={closeGroupModal} onGroupCreated={fetchGroups} />}
-      {isFriendInviteOpen && <FriendInviteModal onClose={closeFriendInviteModal} onFriendAdded={handleFriendRequestSent} />}
+      {isGroupModalOpen && (
+        <GroupCreateModal onClose={closeGroupModal} onGroupCreated={fetchGroups} />
+      )}
+      {isFriendInviteOpen && (
+        <FriendInviteModal
+          onClose={closeFriendInviteModal}
+          onFriendAdded={refreshFriendList} // ✅ 목록 새로고침
+        />
+      )}
       {isFriendInboxOpen && (
         <FriendsInboxModal
           onClose={() => setIsFriendInboxOpen(false)}
