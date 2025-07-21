@@ -7,7 +7,7 @@ const friendList = [
   { id: 3, name: "천서현", isFriend: true },
   { id: 4, name: "김인규", isFriend: true },
   { id: 5, name: "김아연", isFriend: true },
-  { id: 6, name: "조현준", isFriend: false }, // 친구가 아님
+  { id: 6, name: "조현준", isFriend: true }, 
 ];
 
 export default function GroupCreateModal({ onClose }) {

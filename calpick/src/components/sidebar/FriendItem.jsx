@@ -1,9 +1,7 @@
 import React from "react";
 import calendarIcon from "../../assets/calendaricon.svg";
 
-function FriendItem({ friend, onCalendarClick }) {
-  const { id, name } = friend;
-
+function FriendItem({ friend: { id, name }, onCalendarClick }) {
   const handleCalendarClick = () => {
     if (onCalendarClick) {
       onCalendarClick(id, name);
@@ -16,7 +14,7 @@ function FriendItem({ friend, onCalendarClick }) {
       <img
         src={calendarIcon}
         alt="calendaricon"
-        className="w-[18px] h-[18px]"
+        className="w-[18px] h-[18px] cursor-pointer"
         onClick={handleCalendarClick}
       />
     </div>

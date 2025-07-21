@@ -7,26 +7,12 @@ import GroupCreateModal from "./GroupCreateModal";
 import InboxModal from "./GroupInboxModal";
 import FriendsInboxModal from "./FriendsInboxModal";
 import FriendInviteModal from "./FriendInviteModal";
-import GroupViewModal from "./GroupViewModal";
-
-// //목업 데이터
-// const friendList = [
-//   { id: 1, name: "이수현" },
-//   { id: 2, name: "김건우" },
-//   { id: 3, name: "천서현" },
-//   { id: 4, name: "김인규" },
-//   { id: 5, name: "김아연" },
-//   { id: 6, name: "이수현" },
-//   { id: 7, name: "김건우" },
-//   { id: 8, name: "천서현" },
-// ];
 
 function Sidebar() {
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [isInboxOpen, setIsInboxOpen] = useState(false);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [showFriendInbox, setShowFriendInbox] = useState(false);
-  const [showGroupViewModal, setShowGroupViewModal] = useState(false);
 
   const [groupList, setGroupList] = useState([]);
   const [friendList, setFriendList] = useState([]);
@@ -35,7 +21,6 @@ function Sidebar() {
     setFriendList((prevList) => [...prevList, newFriend]);
   };
 
-
   const openGroupModal = () => setIsGroupModalOpen(true);
   const closeGroupModal = () => setIsGroupModalOpen(false);
   const openInboxModal = () => setIsInboxOpen(true);
@@ -43,13 +28,28 @@ function Sidebar() {
   const openInviteModal = () => setIsInviteOpen(true);
   const closeInviteModal = () => setIsInviteOpen(false);
 
+  // ✅ 친구 목록 불러오기
+  const refreshFriendList = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    try {
+      const { data } = await axios.get(
+        `${import.meta.env.VITE_API_URL}/api/friends`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setFriendList(data.filter(f => f.status === "ACCEPTED"));
+    } catch {
+      console.error("친구 목록 불러오기 실패");
+    }
+  };
+
   const fetchGroups = async () => {
     const token = localStorage.getItem("token");
     const userId = localStorage.getItem("userId");
 
     try {
       const res = await fetch(
-        `${import.meta.env.VITE_API_URLL}/api/groups/${userId}`,
+        `${import.meta.env.VITE_API_URL}/api/groups/${userId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -71,7 +71,8 @@ function Sidebar() {
   };
 
   useEffect(() => {
-    fetchGroups(); // 마운트 시 초기 로딩
+    fetchGroups();
+    refreshFriendList(); // ✅ 친구 목록도 함께 로딩
   }, []);
 
   return (
