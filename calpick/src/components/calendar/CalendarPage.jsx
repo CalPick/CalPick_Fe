@@ -1,5 +1,4 @@
-
-
+// CalendarPage.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import CalendarWrapper from "./CalendarWrapper";
@@ -20,9 +19,7 @@ export default function CalendarPage() {
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
   const authInfo = getAuthInfoFromToken(token);
-
   const CURRENT_USER = { id: authInfo?.id, name: authInfo?.nickname };
-
   const [viewedUser, setViewedUser] = useState(CURRENT_USER);
 
   useEffect(() => {
@@ -37,7 +34,6 @@ export default function CalendarPage() {
     navigate("/landing");
   }
 
-  // *** MODIFIED: Now accepts the full friend object from Sidebar ***
   const handleCalendarClick = (friend) => {
     setViewedUser(friend);
   };
@@ -46,11 +42,8 @@ export default function CalendarPage() {
     setViewedUser(CURRENT_USER);
   };
 
-  if (!authInfo) {
-    return <div>Loading...</div>;
-  }
+  if (!authInfo) return <div>Loading...</div>;
 
-  // *** ADDED: Determine if the current view is read-only ***
   const isReadOnly = viewedUser.id !== CURRENT_USER.id;
 
   return (
@@ -69,9 +62,8 @@ export default function CalendarPage() {
           </button>
         </div>
       </header>
-      
+
       <aside>
-        {/* *** MODIFIED: friendList prop is removed *** */}
         <Sidebar
           viewedUser={viewedUser}
           currentUserId={CURRENT_USER.id}
@@ -79,10 +71,13 @@ export default function CalendarPage() {
           onGoBack={handleGoBackToMyCalendar}
         />
       </aside>
-      
+
       <main className="absolute left-[420px] top-[100px] w-[830px] h-[800px] bg-white rounded-xl flex flex-col">
-        {/* *** MODIFIED: Pass isReadOnly prop to CalendarWrapper *** */}
-        <CalendarWrapper key={viewedUser.id} userId={viewedUser.id} isReadOnly={isReadOnly} />
+        <CalendarWrapper
+          key={viewedUser.id}
+          userId={viewedUser.id}
+          isReadOnly={isReadOnly}
+        />
       </main>
     </div>
   );

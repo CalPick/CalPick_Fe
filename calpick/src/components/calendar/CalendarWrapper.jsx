@@ -1,14 +1,13 @@
-
+// CalendarWrapper.jsx
 import React, { useState, useEffect } from "react";
+import axios from "axios";
 import CalendarHeader from "./CalendarHeader";
-import CalendarGrid from "./CalendarGrid";
 import WeekdayRow from "./WeekdayRow";
+import CalendarGrid from "./CalendarGrid";
 import ScheduleFormPanel from "../common/ScheduleFormPanel";
 import ScheduleViewPanel from "../common/ScheduleViewPanel";
-import axios from "axios";
 
-// This component now receives the userId to display from its parent (CalendarPage)
-export default function CalendarWrapper({ userId }) {
+export default function CalendarWrapper({ userId, isReadOnly }) {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
@@ -19,41 +18,31 @@ export default function CalendarWrapper({ userId }) {
   const [anchorRef, setAnchorRef] = useState(null);
   const [scheduleToEdit, setScheduleToEdit] = useState(null);
 
-  // Token is still needed for API calls
   const token = localStorage.getItem("token");
 
   const fetchSchedules = () => {
-    // It now uses the userId passed in via props.
     if (!token || !userId) {
       setSchedules([]);
       return;
     }
     axios
-      .get(
-        `${import.meta.env.VITE_API_URL}/api/schedules/monthly`,
-        {
-          // Use the userId from props for the request
-          params: { userId, year, month: month + 1 },
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      )
+      .get(`${import.meta.env.VITE_API_URL}/api/schedules/monthly`, {
+        params: { userId, year, month: month + 1 },
+        headers: { Authorization: `Bearer ${token}` },
+      })
       .then(res => setSchedules(Array.isArray(res.data) ? res.data : []))
-      .catch((err) => {
+      .catch(err => {
         console.error(`Failed to fetch schedules for userId: ${userId}`, err);
-        setSchedules([]); // Clear schedules on error
+        setSchedules([]);
       });
   };
 
-  // The dependency array now includes userId.
-  // This ensures that when the userId prop changes, schedules are re-fetched.
   useEffect(fetchSchedules, [year, month, userId, token]);
 
-  // --- All other handlers and logic remain the same ---
-  // (handleCellClick, handlePanelClose, handleEditClick, etc.)
-
-  const handleCellClick = (date, cellRef, hasSchedule = false) => {
+  const handleCellClick = (date, ref, hasSchedule) => {
+    if (isReadOnly && !hasSchedule) return;
     setSelectedDate(date);
-    setAnchorRef(cellRef);
+    setAnchorRef(ref);
     setPanelType(hasSchedule ? "view" : "add");
     setPanelOpen(true);
   };
@@ -66,57 +55,49 @@ export default function CalendarWrapper({ userId }) {
     setScheduleToEdit(null);
   };
 
-  const handleEditClick = (schedule) => {
+  const handleEditClick = schedule => {
     setScheduleToEdit(schedule);
     setPanelType("edit");
   };
 
-  const handleUpdateSchedule = async (updatedData) => {
-    if (!token || !scheduleToEdit?.id) {
-      alert("인증 정보가 없거나 수정할 일정이 선택되지 않았습니다.");
-      return;
-    }
+  const handleUpdateSchedule = async updatedData => {
+    if (!token || !scheduleToEdit?.id) return alert("인증 정보가 없거나 수정 대상이 없습니다.");
     try {
-      const response = await axios.put(
+      const res = await axios.put(
         `${import.meta.env.VITE_API_URL}/api/schedules/${scheduleToEdit.id}`,
         updatedData,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      const updatedSchedule = Array.isArray(response.data) ? response.data[0] : response.data;
-      setSchedules(schedules.map(s => s.id === updatedSchedule.id ? updatedSchedule : s));
+      const updated = Array.isArray(res.data) ? res.data[0] : res.data;
+      setSchedules(schedules.map(s => (s.id === updated.id ? updated : s)));
       handlePanelClose();
-    } catch (error) {
-      console.error("일정 수정 실패:", error);
-      alert(error.response?.data?.error || "일정 수정 중 오류가 발생했습니다.");
+    } catch (err) {
+      console.error("일정 수정 실패", err);
+      alert(err.response?.data?.error || "일정 수정 오류");
     }
   };
 
-  const handleDeleteSchedule = async (scheduleId) => {
-    if (!token || !scheduleId) {
-      alert("인증 정보가 없거나 삭제할 일정이 선택되지 않았습니다.");
-      return;
-    }
+  const handleDeleteSchedule = async id => {
+    if (!token || !id) return alert("인증 정보가 없거나 삭제 대상이 없습니다.");
     try {
-      await axios.delete(
-        `${import.meta.env.VITE_API_URL}/api/schedules/${scheduleId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setSchedules(schedules.filter((s) => s.id !== scheduleId));
+      await axios.delete(`${import.meta.env.VITE_API_URL}/api/schedules/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setSchedules(schedules.filter(s => s.id !== id));
       handlePanelClose();
-    } catch (error) {
-      console.error("일정 삭제 실패:", error);
-      alert(error.response?.data?.error || "일정 삭제 중 오류가 발생했습니다.");
+    } catch (err) {
+      console.error("일정 삭제 실패", err);
+      alert(err.response?.data?.error || "일정 삭제 오류");
     }
   };
 
   const handlePrevMonth = () => {
-    setMonth(m => m === 0 ? 11 : m - 1);
-    setYear(y => month === 0 ? y - 1 : y);
+    setMonth(m => (m === 0 ? 11 : m - 1));
+    setYear(y => (month === 0 ? y - 1 : y));
   };
-
   const handleNextMonth = () => {
-    setMonth(m => m === 11 ? 0 : m + 1);
-    setYear(y => month === 11 ? y + 1 : y);
+    setMonth(m => (m === 11 ? 0 : m + 1));
+    setYear(y => (month === 11 ? y + 1 : y));
   };
 
   const getDates = (y, m) => {
@@ -128,15 +109,18 @@ export default function CalendarWrapper({ userId }) {
     }
     return arr;
   };
-
   const dates = getDates(year, month);
 
   const cellClickHandler = (date, ref) => {
-    const hasSchedule = schedules.some(sch => {
+    const has = schedules.some(sch => {
       const dt = new Date(sch.startTime);
-      return dt.getFullYear() === date.getFullYear() && dt.getMonth() === date.getMonth() && dt.getDate() === date.getDate();
+      return (
+        dt.getFullYear() === date.getFullYear() &&
+        dt.getMonth() === date.getMonth() &&
+        dt.getDate() === date.getDate()
+      );
     });
-    handleCellClick(date, ref, hasSchedule);
+    handleCellClick(date, ref, has);
   };
 
   return (
@@ -145,37 +129,33 @@ export default function CalendarWrapper({ userId }) {
         <CalendarHeader year={year} month={month} onPrev={handlePrevMonth} onNext={handleNextMonth} />
         <WeekdayRow />
         <div className="flex-1">
-          <CalendarGrid
-            dates={dates}
-            currentMonth={month}
-            schedules={schedules}
-            selectedDate={selectedDate}
-            onDateClick={cellClickHandler}
-          />
+          <CalendarGrid dates={dates} currentMonth={month} schedules={schedules} onDateClick={cellClickHandler} />
         </div>
       </div>
+
       {panelOpen && selectedDate && anchorRef && panelType === "view" && (
         <ScheduleViewPanel
-          open={true}
+          open
           anchorRef={anchorRef}
           date={selectedDate}
           schedules={schedules}
           onAddClick={() => setPanelType("add")}
           onClose={handlePanelClose}
           onEditClick={handleEditClick}
+          isReadOnly={isReadOnly}
         />
       )}
-      {panelOpen && selectedDate && anchorRef && (panelType === "add" || panelType === "edit") && (
+
+      {panelOpen && selectedDate && anchorRef && (panelType === "add" || panelType === "edit") && !isReadOnly && (
         <ScheduleFormPanel
-          open={true}
+          open
           anchorRef={anchorRef}
           date={selectedDate}
-          setDate={setSelectedDate}
           onClose={handlePanelClose}
           onAddSchedule={fetchSchedules}
           onEditSchedule={handleUpdateSchedule}
           onDeleteSchedule={handleDeleteSchedule}
-          schedule={panelType === 'edit' ? scheduleToEdit : null}
+          schedule={panelType === "edit" ? scheduleToEdit : null}
         />
       )}
     </>
