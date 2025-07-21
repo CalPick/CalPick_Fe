@@ -1,4 +1,6 @@
+// Sidebar.jsx
 import React, { useState, useEffect } from "react";
+import axios from "axios";
 import GroupListPanel from "./GroupListPanel";
 import FriendItem from "./FriendItem";
 import mailIcon from "../../assets/mailicon-default.svg";
@@ -23,12 +25,31 @@ function Sidebar() {
 
   const openGroupModal = () => setIsGroupModalOpen(true);
   const closeGroupModal = () => setIsGroupModalOpen(false);
-  const openInboxModal = () => setIsInboxOpen(true);
-  const closeInboxModal = () => setIsInboxOpen(false);
-  const openInviteModal = () => setIsInviteOpen(true);
-  const closeInviteModal = () => setIsInviteOpen(false);
+  const openGroupInboxModal = () => setIsGroupInboxOpen(true);
+  const closeGroupInboxModal = () => setIsGroupInboxOpen(false);
+  const openFriendInviteModal = () => setIsFriendInviteOpen(true);
+  const closeFriendInviteModal = () => setIsFriendInviteOpen(false);
 
-  // ✅ 친구 목록 불러오기
+
+
+  // 친구 요청 보내기
+  const handleFriendRequestSent = async (targetUserId) => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.post(
+        `${import.meta.env.VITE_API_URL}/api/friends/request`,
+        { targetUserId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setPendingRequests(prev => [...prev, { id: null, targetUserId, status: "PENDING" }]);
+      alert("친구 요청을 보냈습니다. 상대방이 수락하면 목록에 나타납니다.");
+    } catch {
+      alert("친구 요청에 실패했습니다.");
+    }
+  };
+
+  // 친구 목록 조회
+
   const refreshFriendList = async () => {
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -43,10 +64,26 @@ function Sidebar() {
     }
   };
 
+
+  // 달력 클릭 핸들러
+  const handleFriendCalendarClick = (userId) => {
+    onCalendarClick({ id: userId, name: userId });
+  };
+
+  useEffect(() => {
+    refreshFriendList();
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(refreshFriendList, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+
   const fetchGroups = async () => {
     const token = localStorage.getItem("token");
     const userId = localStorage.getItem("userId");
-
+    if (!token || !userId) return;
     try {
       const res = await fetch(
         `${import.meta.env.VITE_API_URL}/api/groups/${userId}`,
@@ -55,18 +92,13 @@ function Sidebar() {
             Authorization: `Bearer ${token}`,
           },
         }
+
       );
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error("서버 오류 응답:", errorText);
-        throw new Error("그룹 생성 실패");
-      }
-
+      if (!res.ok) throw new Error();
       const data = await res.json();
       setGroupList(data);
-    } catch (err) {
-      console.error("그룹 목록 조회 실패", err);
+    } catch {
+      console.error("그룹 목록 불러오기 실패");
     }
   };
 
@@ -75,80 +107,96 @@ function Sidebar() {
     refreshFriendList(); // ✅ 친구 목록도 함께 로딩
   }, []);
 
+  const isViewingFriendCalendar = viewedUser && viewedUser.id !== currentUserId;
+
   return (
     <>
-      <aside
-        className="
-        absolute left-[130px] top-[186px] w-[254px] h-[715px] mt-[-36px]
-        gap-8 flex flex-col items-center justify-start"
-      >
-        {/* 그룹 섹션 */}
-        <div className="w-[289px] h-[459px] mr-8">
-          <div className="flex items-center justify-between border-b border-black pb-2">
-            <span className="text-[18px] font-[600]">그룹</span>
-            <div className="flex items-center gap-2">
-              <img
-                src={mailIcon}
-                alt="메일"
-                onClick={openInboxModal}
-                className="w-[32px] h-[32px] cursor-pointer"
-              />
-              <img
-                src={plusIcon}
-                alt="추가"
-                onClick={openGroupModal}
-                className="w-[32px] h-[32px] cursor-pointer"
-              />
+      <aside className="absolute left-[130px] top-[186px] w-[254px] h-[715px] mt-[-36px] gap-8 flex flex-col items-center justify-start">
+        {isViewingFriendCalendar ? (
+          <div className="w-[289px] h-auto mr-8">
+            <div className="flex items-center justify-between border-b border-black pb-2">
+              <span className="text-[18px] font-[600]">친구 달력</span>
+            </div>
+            <div className="mt-4 flex flex-col gap-2 text-center">
+              <p className="text-xl font-semibold">{viewedUser.name}</p>
+              <p className="text-sm text-gray-500">ID: {viewedUser.id}</p>
+              <button
+                onClick={onGoBack}
+                className="mt-4 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-800 transition-colors"
+              >
+                내 캘린더로 돌아가기
+              </button>
             </div>
           </div>
-          <GroupListPanel groupList={groupList} />
-        </div>
-
-        {/* 친구 섹션 */}
-        <div className="w-[289px] h-[315px] mr-8">
-          <div className="flex items-center justify-between border-b border-black pb-2">
-            <span className="text-[18px] font-[600]">친구</span>
-            <div className="flex items-center gap-2">
-              <img
-                src={mailIcon}
-                alt="메일함"
-                className="w-[32px] h-[32px] cursor-pointer"
-                onClick={() => setShowFriendInbox(true)}
-              />
-              <img
-                src={plusIcon}
-                alt="추가"
-                onClick={openInviteModal}
-                className="w-[32px] h-[32px] cursor-pointer"
-              />
+        ) : (
+          <>
+            {/* 그룹 섹션 */}
+            <div className="w-[289px] h-[459px] mr-8 flex-shrink-0">
+              <div className="flex items-center justify-between border-b border-black pb-2">
+                <span className="text-[18px] font-[600]">그룹</span>
+                <div className="flex items-center gap-2">
+                  <img
+                    src={mailIcon}
+                    alt="메일"
+                    onClick={openGroupInboxModal}
+                    className="w-[32px] h-[32px] cursor-pointer"
+                  />
+                  <img
+                    src={plusIcon}
+                    alt="추가"
+                    onClick={openGroupModal}
+                    className="w-[32px] h-[32px] cursor-pointer"
+                  />
+                </div>
+              </div>
+              <GroupListPanel groupList={groupList} />
             </div>
-          </div>
 
-          {/* 친구 목록*/}
-          <div className="mt-4 h-[200px] overflow-y-auto scrollbar-hide flex flex-col gap-7">
-            {friendList.map((friend) => (
-              <FriendItem key={friend.id} friend={friend} />
-            ))}
-          </div>
-        </div>
+            {/* 친구 섹션 */}
+            <div className="w-[289px] mr-8 flex-1 flex flex-col min-h-0">
+              <div className="flex items-center justify-between border-b border-black pb-2 flex-shrink-0">
+                <span className="text-[18px] font-[600]">친구</span>
+                <div className="flex items-center gap-2">
+                  <img
+                    src={mailIcon}
+                    alt="메일함"
+                    className="w-[32px] h-[32px] cursor-pointer"
+                    onClick={() => setIsFriendInboxOpen(true)}
+                  />
+                  <img
+                    src={plusIcon}
+                    alt="추가"
+                    onClick={openFriendInviteModal}
+                    className="w-[32px] h-[32px] cursor-pointer"
+                  />
+                </div>
+              </div>
+              <div className="mt-4 flex-1 overflow-y-auto scrollbar-hide flex flex-col gap-7">
+                {friendList.map(f => {
+                  const userId = f.requesterId === currentUserId ? f.accepterId : f.requesterId;
+                  return (
+                    <FriendItem
+                      key={f.id}
+                      friend={{ id: userId, name: userId }}
+                      onCalendarClick={handleFriendCalendarClick}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
       </aside>
 
-      {isInboxOpen && <InboxModal onClose={closeInboxModal} />}
-      {isGroupModalOpen && (
-        <GroupCreateModal
-          onClose={closeGroupModal}
-          onGroupCreated={fetchGroups}
+      {isGroupInboxOpen && <InboxModal onClose={closeGroupInboxModal} />}
+      {isGroupModalOpen && <GroupCreateModal onClose={closeGroupModal} onGroupCreated={fetchGroups} />}
+      {isFriendInviteOpen && <FriendInviteModal onClose={closeFriendInviteModal} onFriendAdded={handleFriendRequestSent} />}
+      {isFriendInboxOpen && (
+        <FriendsInboxModal
+          onClose={() => setIsFriendInboxOpen(false)}
+          onFriendAccepted={refreshFriendList}
+          onFriendRejected={refreshFriendList}
         />
-      )}
-      
-      {isInviteOpen && (
-        <FriendInviteModal
-          onClose={closeInviteModal}
-          onFriendAdded={handleFriendAdded} // ✅ 친구 추가 시 업데이트
-        />
-      )}
-      {showFriendInbox && (
-        <FriendsInboxModal onClose={() => setShowFriendInbox(false)} />
       )}
     </>
   );
